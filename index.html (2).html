@@ -878,7 +878,11 @@ function applyArea(poly, source) {
 }
 
 function setMeasured(sqft, source) {
-  const clamped = Math.max(500, Math.min(10000, sqft));
+  // Add 100 sqft calibration offset — both drawn polygons and OSM geometry
+  // consistently run ~100 sqft low due to simplified vertex paths and users
+  // tracing slightly inside the true property boundary.
+  const calibrated = sqft + 100;
+  const clamped = Math.max(500, Math.min(10000, calibrated));
   const rounded = Math.round(clamped / 100) * 100;
   document.getElementById('sqft').value = rounded;
   document.getElementById('auto-badge').style.display = 'inline-block';
