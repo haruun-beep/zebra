@@ -174,6 +174,20 @@
   }
   .btn-confirm-site:hover { background: var(--green-dark); }
 
+  /* Auto-detect status bar */
+  #auto-detect-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 13px; border-radius: 8px; font-size: 12px;
+    margin: 8px 0; line-height: 1.5;
+    background: #f0f4f2; border: 1px solid var(--border);
+    color: var(--muted); transition: background 0.3s, border-color 0.3s;
+  }
+  #auto-detect-status.loading  { background: #f0f4f2; border-color: var(--border); color: var(--muted); }
+  #auto-detect-status.success  { background: #e8f7f1; border-color: var(--green-mid); color: var(--green-deep); }
+  #auto-detect-status.estimate { background: #fff8e1; border-color: #f4c776; color: #7b5a1a; }
+  #auto-detect-status.warn     { background: #fef3f3; border-color: #f4b8b8; color: #7b2a2a; }
+  #auto-detect-icon { font-size: 13px; flex-shrink: 0; }
+
   /* Drawing instructions */
   #draw-tip {
     background: #e8f5ee; border: 1px solid var(--green-mid); border-radius: 8px;
@@ -256,12 +270,17 @@
         <div id="google-map"></div>
         <div class="map-bar">
           <span class="map-addr" id="map-addr-label"></span>
-          <button class="btn-confirm-site" onclick="confirmSite()">✓ Confirm — draw yard</button>
+          <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw to refine</button>
         </div>
       </div>
 
+      <div id="auto-detect-status" style="display:none">
+        <span id="auto-detect-icon">⏳</span>
+        <span id="auto-detect-msg">Detecting lawn area from map data…</span>
+      </div>
+
       <div id="draw-tip">
-        <strong>Draw mode on:</strong> Click points on the satellite image to trace the yard boundary. Close the shape by clicking your first point. Sq ft calculates automatically.
+        <strong>Draw mode on:</strong> Click points on the satellite image to trace the lawn boundary. Close the shape by clicking your first point. Sq ft updates automatically.
       </div>
 
       <div id="area-badge">
@@ -545,12 +564,16 @@ function showMap(latLng, address) {
     map.setCenter(latLng); map.setZoom(19);
   }
   wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Automatically attempt to detect the lawn area from OpenStreetMap data
+  autoDetectLawn(latLng);
 }
 
 function confirmSite() {
   document.getElementById('draw-tip').style.display = 'block';
   initDrawing();
   document.getElementById('draw-tip').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Hide auto-detect status once the user takes manual control
+  document.getElementById('auto-detect-status').style.display = 'none';
 }
 
 function initDrawing() {
@@ -580,6 +603,102 @@ function initDrawing() {
   });
 }
 
+// ── AUTO-DETECT LAWN AREA via OpenStreetMap Overpass API ──
+
+function osmPolyArea(geomNodes) {
+  // geomNodes is an array of {lat, lon} from Overpass out geom
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  return google.maps.geometry.spherical.computeArea(path); // returns m²
+}
+
+function showAutoStatus(msg, state, icon) {
+  const el   = document.getElementById('auto-detect-status');
+  const msgEl = document.getElementById('auto-detect-msg');
+  const iconEl = document.getElementById('auto-detect-icon');
+  el.style.display = 'flex';
+  el.className = state || 'loading';
+  msgEl.textContent = msg;
+  iconEl.textContent = icon || (state === 'success' ? '✓' : state === 'estimate' ? '~' : state === 'warn' ? '⚠' : '⏳');
+}
+
+async function autoDetectLawn(latLng) {
+  const lat = latLng.lat();
+  const lng = latLng.lng();
+  showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
+  document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
+
+  const query = `[out:json][timeout:18];
+(
+  way["natural"="grass"](around:60,${lat},${lng});
+  way["landuse"="grass"](around:60,${lat},${lng});
+  way["leisure"="garden"](around:60,${lat},${lng});
+  way["landuse"="lawn"](around:60,${lat},${lng});
+  way["building"](around:25,${lat},${lng});
+  way["landuse"="residential"](around:15,${lat},${lng});
+  way["boundary"="land_area"](around:15,${lat},${lng});
+);
+out geom tags;`;
+
+  try {
+    const resp = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(query),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
+
+    for (const el of (data.elements || [])) {
+      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+      const sqft = osmPolyArea(el.geometry) * 10.7639;
+      const t = el.tags || {};
+
+      if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
+        grassSqft += sqft;
+      } else if (t.building) {
+        buildingSqft += sqft;
+      } else if (t.landuse === 'residential' || t.boundary === 'land_area') {
+        // Only treat as a single lot if it's a plausible residential parcel size
+        if (sqft >= 1200 && sqft <= 22000) lotSqft += sqft;
+      }
+    }
+
+    let result = 0, confidence = '', state = 'success';
+
+    if (grassSqft >= 300) {
+      // Direct grass/lawn polygons found — most accurate
+      result = grassSqft;
+      confidence = 'Measured from grass area in OpenStreetMap';
+      state = 'success';
+    } else if (lotSqft >= 1200) {
+      // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
+      result = Math.max(400, (lotSqft - buildingSqft) * 0.78);
+      confidence = 'Estimated from lot boundary — draw to refine';
+      state = 'estimate';
+    } else if (buildingSqft >= 500) {
+      // Only have building; use regional average lot-to-building ratio to estimate
+      result = buildingSqft * 2.0;
+      confidence = 'Rough estimate from building footprint — draw to refine';
+      state = 'estimate';
+    }
+
+    if (result >= 300 && result <= 12000) {
+      showAutoStatus(confidence, state);
+      setMeasured(Math.round(result),
+        state === 'success' ? 'Auto — OpenStreetMap grass data'
+                            : 'Estimated from map boundary data');
+    } else {
+      showAutoStatus('No usable map data found — draw the yard boundary below', 'warn', '⚠');
+      document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+    }
+  } catch (err) {
+    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
+    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+  }
+}
+
 function applyArea(poly, source) {
   const m2   = google.maps.geometry.spherical.computeArea(poly.getPath());
   const sqft = Math.round(m2 * 10.7639);
@@ -606,6 +725,7 @@ function resetMap() {
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
+  document.getElementById('auto-detect-status').style.display = 'none';
   document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
   drawingManager = null; map = null;
 }
