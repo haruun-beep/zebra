@@ -498,7 +498,7 @@
 const GMAPS_KEY = 'AIzaSyCK1oqO-v7ozX6bjyYd_8LeOBUELvNFwhA';
 
 // ── STATE ──
-let map = null, autocomplete = null, drawingManager = null, activePolygon = null;
+let map = null, autocomplete = null, drawingManager = null, activePolygon = null, lastAddressComponents = null;
 
 // Callback must exist on window BEFORE the script tag is injected
 window.onMapsReady = function() {
@@ -507,12 +507,12 @@ window.onMapsReady = function() {
     input.placeholder = 'Start typing an address…';
     autocomplete = new google.maps.places.Autocomplete(input, {
       componentRestrictions: { country: 'ca' },
-      fields: ['geometry', 'formatted_address']
+      fields: ['geometry', 'formatted_address', 'address_components']
     });
     autocomplete.addListener('place_changed', function() {
       const place = autocomplete.getPlace();
       if (!place || !place.geometry) return;
-      showMap(place.geometry.location, place.formatted_address);
+      showMap(place.geometry.location, place.formatted_address, place.address_components);
     });
   } catch(e) {
     console.error('Maps init failed:', e);
@@ -545,13 +545,14 @@ function searchAddress() {
   new google.maps.Geocoder().geocode(
     { address: val, componentRestrictions: { country: 'ca' } },
     function(res, status) {
-      if (status === 'OK' && res[0]) showMap(res[0].geometry.location, res[0].formatted_address);
+      if (status === 'OK' && res[0]) showMap(res[0].geometry.location, res[0].formatted_address, res[0].address_components);
       else alert('Address not found — try a more specific address.');
     }
   );
 }
 
-function showMap(latLng, address) {
+function showMap(latLng, address, addressComponents) {
+  lastAddressComponents = addressComponents || null;
   const wrap = document.getElementById('map-wrap');
   wrap.style.display = 'block';
   document.getElementById('map-addr-label').textContent = address;
@@ -690,12 +691,84 @@ out geom tags;`;
         state === 'success' ? 'Auto — OpenStreetMap grass data'
                             : 'Estimated from map boundary data');
     } else {
-      showAutoStatus('No usable map data found — draw the yard boundary below', 'warn', '⚠');
-      document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+      // OSM came up empty — try Edmonton Open Data as fallback
+      const edmontonResult = await queryEdmontonLotSize(buildingSqft);
+      if (!edmontonResult) {
+        showAutoStatus('No map data found — draw the yard boundary below', 'warn', '⚠');
+        document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+      }
     }
   } catch (err) {
     showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
     document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+  }
+}
+
+// ── EDMONTON OPEN DATA FALLBACK ──
+
+function normalizeEdmontonStreet(route) {
+  return route.toUpperCase()
+    .replace(/\bSTREET\b/,    'ST')
+    .replace(/\bAVENUE\b/,    'AVE')
+    .replace(/\bDRIVE\b/,     'DR')
+    .replace(/\bCOURT\b/,     'CT')
+    .replace(/\bCRESCENT\b/,  'CRES')
+    .replace(/\bBOULEVARD\b/, 'BLVD')
+    .replace(/\bROAD\b/,      'RD')
+    .replace(/\bCLOSE\b/,     'CL')
+    .replace(/\bLANE\b/,      'LN')
+    .replace(/\bWAY\b/,       'WY')
+    .replace(/\bTRAIL\b/,     'TR')
+    .replace(/\bPLACE\b/,     'PL')
+    .trim();
+}
+
+async function queryEdmontonLotSize(knownBuildingSqft) {
+  // Only attempt if we have Google address components and the city is Edmonton
+  if (!lastAddressComponents) return false;
+
+  const get = (type) => {
+    const c = lastAddressComponents.find(c => c.types.includes(type));
+    return c ? c.long_name : '';
+  };
+  const city = get('locality') || get('sublocality');
+  if (!city.toLowerCase().includes('edmonton')) return false;
+
+  const houseNumber = get('street_number');
+  const route       = normalizeEdmontonStreet(get('route'));
+  if (!houseNumber || !route) return false;
+
+  showAutoStatus('Checking Edmonton property records…', 'loading', '⏳');
+
+  try {
+    // Historical assessment dataset — has lot_size field (in m²), most recent year first
+    const url = 'https://data.edmonton.ca/resource/qi6a-xuwt.json?' +
+      '$select=lot_size,assessment_year' +
+      '&house_number=' + encodeURIComponent(houseNumber) +
+      '&street_name='  + encodeURIComponent(route) +
+      '&$order=assessment_year%20DESC&$limit=1';
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const rows = await resp.json();
+
+    if (!rows.length || !rows[0].lot_size) return false;
+
+    const lotM2   = parseFloat(rows[0].lot_size);
+    const lotSqft = lotM2 * 10.7639; // Edmonton stores lot_size in m²
+
+    // Sanity check — residential lots in Edmonton are typically 2,500–12,000 sq ft
+    if (lotSqft < 1000 || lotSqft > 25000) return false;
+
+    // Subtract building footprint if we found one from OSM, else use 28% default
+    const bldg   = knownBuildingSqft > 0 ? knownBuildingSqft : lotSqft * 0.28;
+    const lawn   = Math.max(400, (lotSqft - bldg) * 0.78);
+
+    showAutoStatus('Estimated from City of Edmonton property record — draw to refine', 'estimate');
+    setMeasured(Math.round(lawn), 'Estimated — Edmonton lot data (' + rows[0].assessment_year + ')');
+    return true;
+  } catch (err) {
+    return false;
   }
 }
 
