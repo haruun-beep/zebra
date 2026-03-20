@@ -156,7 +156,7 @@
   .btn-go:hover { background: var(--green-dark); }
 
   #map-wrap {
-    width: 100%; height: 260px; border-radius: 10px; border: 1.5px solid var(--green-mid);
+    width: 100%; height: 480px; border-radius: 10px; border: 1.5px solid var(--green-mid);
     overflow: hidden; margin: 10px 0; display: none; position: relative;
   }
   #google-map { width: 100%; height: 100%; }
@@ -173,20 +173,6 @@
     font-family: 'DM Sans', sans-serif; transition: background 0.15s;
   }
   .btn-confirm-site:hover { background: var(--green-dark); }
-
-  /* Auto-detect status bar */
-  #auto-detect-status {
-    display: flex; align-items: center; gap: 8px;
-    padding: 9px 13px; border-radius: 8px; font-size: 12px;
-    margin: 8px 0; line-height: 1.5;
-    background: #f0f4f2; border: 1px solid var(--border);
-    color: var(--muted); transition: background 0.3s, border-color 0.3s;
-  }
-  #auto-detect-status.loading  { background: #f0f4f2; border-color: var(--border); color: var(--muted); }
-  #auto-detect-status.success  { background: #e8f7f1; border-color: var(--green-mid); color: var(--green-deep); }
-  #auto-detect-status.estimate { background: #fff8e1; border-color: #f4c776; color: #7b5a1a; }
-  #auto-detect-status.warn     { background: #fef3f3; border-color: #f4b8b8; color: #7b2a2a; }
-  #auto-detect-icon { font-size: 13px; flex-shrink: 0; }
 
   /* Drawing instructions */
   #draw-tip {
@@ -215,6 +201,95 @@
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
     text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; vertical-align: middle;
   }
+
+  .action-bar { display: flex; gap: 12px; margin-top: 22px; }
+  .btn-approve {
+    flex: 1; padding: 15px; background: #1D9E75; color: #fff; border: none;
+    border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s, transform 0.1s;
+  }
+  .btn-approve:hover  { background: #0f6e52; }
+  .btn-approve:active { transform: scale(0.98); }
+  .btn-reject {
+    flex: 1; padding: 15px; background: none; color: #c0392b;
+    border: 2px solid #f0b0b0; border-radius: 10px; font-size: 15px; font-weight: 700;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .btn-reject:hover { background: #fff5f5; border-color: #c0392b; }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--white); border-radius: 14px; padding: 28px 28px 24px;
+    width: 100%; max-width: 440px; box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    animation: min 0.2s ease;
+  }
+  @keyframes min { from { opacity:0; transform: scale(0.96) translateY(8px); } to { opacity:1; transform: none; } }
+  .modal-title { font-size: 17px; font-weight: 700; color: var(--green-deep); margin-bottom: 4px; }
+  .modal-sub   { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; font-family: 'DM Mono', monospace; }
+  .modal-field input {
+    width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 14px; color: var(--black); outline: none; transition: border-color 0.15s;
+    font-family: 'DM Sans', sans-serif; background: var(--white);
+  }
+  .modal-field input:focus { border-color: var(--green); }
+  .modal-field input::placeholder { color: #ccc; }
+  .modal-total-row {
+    background: var(--green-light); border-radius: 8px; padding: 12px 14px;
+    margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;
+    border: 1px solid var(--green-mid);
+  }
+  .modal-total-label { font-size: 13px; color: var(--green-deep); font-weight: 500; }
+  .modal-total-val   { font-size: 20px; font-weight: 700; color: var(--green-deep); }
+  .modal-btn-row { display: flex; gap: 10px; }
+  .modal-btn-send {
+    flex: 1; padding: 13px; background: var(--green); color: #fff; border: none;
+    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .modal-btn-send:hover { background: var(--green-dark); }
+  .modal-btn-cancel {
+    padding: 13px 18px; background: none; color: var(--muted);
+    border: 1.5px solid var(--border); border-radius: 9px; font-size: 14px;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .modal-btn-cancel:hover { border-color: var(--text); color: var(--text); }
+  .modal-sent { text-align: center; padding: 16px 0 6px; }
+  .modal-sent-icon  { font-size: 44px; margin-bottom: 12px; }
+  .modal-sent-title { font-size: 17px; font-weight: 700; color: var(--green-deep); margin-bottom: 6px; }
+  .modal-sent-sub   { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .modal-jobber-note { background: var(--green-light); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #0a4a37; margin-top: 14px; line-height: 1.6; border: 1px solid var(--green-mid); }
+  .reject-overlay {
+    display: none; position: fixed; inset: 0; z-index: 2000;
+    background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 20px;
+  }
+  .reject-overlay.open { display: flex; }
+  .reject-box {
+    background: var(--white); border-radius: 14px; padding: 28px;
+    width: 100%; max-width: 360px; text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2); animation: min 0.2s ease;
+  }
+  .reject-icon  { font-size: 40px; margin-bottom: 12px; }
+  .reject-title { font-size: 17px; font-weight: 700; color: #c0392b; margin-bottom: 8px; }
+  .reject-sub   { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+  .reject-btn-row { display: flex; gap: 10px; }
+  .reject-btn-edit {
+    flex: 1; padding: 12px; background: var(--green); color: #fff; border: none;
+    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .reject-btn-edit:hover { background: var(--green-dark); }
+  .reject-btn-discard {
+    flex: 1; padding: 12px; background: none; color: #c0392b;
+    border: 1.5px solid #f0b0b0; border-radius: 9px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .reject-btn-discard:hover { background: #fff5f5; border-color: #c0392b; }
 </style>
 </head>
 <body>
@@ -270,17 +345,12 @@
         <div id="google-map"></div>
         <div class="map-bar">
           <span class="map-addr" id="map-addr-label"></span>
-          <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw to refine</button>
+          <button class="btn-confirm-site" onclick="confirmSite()">✓ Confirm — draw yard</button>
         </div>
       </div>
 
-      <div id="auto-detect-status" style="display:none">
-        <span id="auto-detect-icon">⏳</span>
-        <span id="auto-detect-msg">Detecting lawn area from map data…</span>
-      </div>
-
       <div id="draw-tip">
-        <strong>Draw mode on:</strong> Click points on the satellite image to trace the lawn boundary. Close the shape by clicking your first point. Sq ft updates automatically.
+        <strong>Draw mode on:</strong> Click points on the satellite image to trace the yard boundary. Close the shape by clicking your first point. Sq ft calculates automatically.
       </div>
 
       <div id="area-badge">
@@ -484,6 +554,70 @@
         Not included: grass under trampolines or immovable furniture
       </p>
 
+      <!-- APPROVE / REJECT -->
+      <div class="action-bar">
+        <button class="btn-approve" onclick="openApprove()">✓ Approve Quote</button>
+        <button class="btn-reject"  onclick="openReject()">✕ Reject Quote</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- APPROVE MODAL -->
+<div class="modal-overlay" id="approve-modal">
+  <div class="modal-box">
+    <div id="modal-form-view">
+      <div class="modal-title">Approve &amp; send to Jobber</div>
+      <div class="modal-sub">Fill in the client's details — this will create a quote in Jobber once integration is connected.</div>
+      <div class="modal-total-row">
+        <span class="modal-total-label">Quote total</span>
+        <span class="modal-total-val" id="modal-total-display">$199</span>
+      </div>
+      <div class="modal-field">
+        <label>Client name</label>
+        <input type="text" id="m-name" placeholder="e.g. John Smith">
+      </div>
+      <div class="modal-field">
+        <label>Property address</label>
+        <input type="text" id="m-address" placeholder="e.g. 123 Main St, Edmonton, AB">
+      </div>
+      <div class="modal-field">
+        <label>Phone number</label>
+        <input type="tel" id="m-phone" placeholder="e.g. (780) 555-0100">
+      </div>
+      <div class="modal-field">
+        <label>Email address</label>
+        <input type="email" id="m-email" placeholder="e.g. john@email.com">
+      </div>
+      <div class="modal-jobber-note">
+        <strong>Jobber integration coming soon.</strong> Once connected, tapping Send will automatically create a draft quote in Jobber with all line items pre-filled and send it to the client for approval.
+      </div>
+      <div class="modal-btn-row" style="margin-top:18px">
+        <button class="modal-btn-cancel" onclick="closeApprove()">Cancel</button>
+        <button class="modal-btn-send"   onclick="submitApprove()">Send to Jobber →</button>
+      </div>
+    </div>
+    <div id="modal-sent-view" style="display:none">
+      <div class="modal-sent">
+        <div class="modal-sent-icon">✓</div>
+        <div class="modal-sent-title">Quote saved</div>
+        <div class="modal-sent-sub">Client details have been recorded.<br>Once Jobber is connected, this will send automatically.</div>
+        <button class="modal-btn-send" style="margin-top:20px;width:100%" onclick="closeApprove()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REJECT MODAL -->
+<div class="reject-overlay" id="reject-modal">
+  <div class="reject-box">
+    <div class="reject-icon">✕</div>
+    <div class="reject-title">Reject this quote?</div>
+    <div class="reject-sub">The current quote will be cleared and sliders reset. You can also go back and edit the values instead.</div>
+    <div class="reject-btn-row">
+      <button class="reject-btn-edit"    onclick="closeReject()">Edit quote</button>
+      <button class="reject-btn-discard" onclick="discardQuote()">Discard</button>
     </div>
   </div>
 </div>
@@ -495,7 +629,7 @@
   Enable: Maps JavaScript API · Places API · Geocoding API
 ───────────────────────────────────────────────────── -->
 <script>
-const GMAPS_KEY = 'AIzaSyCK1oqO-v7ozX6bjyYd_8LeOBUELvNFwhA';
+const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
 
 // ── STATE ──
 let map = null, autocomplete = null, drawingManager = null, activePolygon = null;
@@ -564,16 +698,12 @@ function showMap(latLng, address) {
     map.setCenter(latLng); map.setZoom(19);
   }
   wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  // Automatically attempt to detect the lawn area from OpenStreetMap data
-  autoDetectLawn(latLng);
 }
 
 function confirmSite() {
   document.getElementById('draw-tip').style.display = 'block';
   initDrawing();
   document.getElementById('draw-tip').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  // Hide auto-detect status once the user takes manual control
-  document.getElementById('auto-detect-status').style.display = 'none';
 }
 
 function initDrawing() {
@@ -603,105 +733,10 @@ function initDrawing() {
   });
 }
 
-// ── AUTO-DETECT LAWN AREA via OpenStreetMap Overpass API ──
-
-function osmPolyArea(geomNodes) {
-  // geomNodes is an array of {lat, lon} from Overpass out geom
-  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
-  return google.maps.geometry.spherical.computeArea(path); // returns m²
-}
-
-function showAutoStatus(msg, state, icon) {
-  const el   = document.getElementById('auto-detect-status');
-  const msgEl = document.getElementById('auto-detect-msg');
-  const iconEl = document.getElementById('auto-detect-icon');
-  el.style.display = 'flex';
-  el.className = state || 'loading';
-  msgEl.textContent = msg;
-  iconEl.textContent = icon || (state === 'success' ? '✓' : state === 'estimate' ? '~' : state === 'warn' ? '⚠' : '⏳');
-}
-
-async function autoDetectLawn(latLng) {
-  const lat = latLng.lat();
-  const lng = latLng.lng();
-  showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
-  document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
-
-  const query = `[out:json][timeout:18];
-(
-  way["natural"="grass"](around:60,${lat},${lng});
-  way["landuse"="grass"](around:60,${lat},${lng});
-  way["leisure"="garden"](around:60,${lat},${lng});
-  way["landuse"="lawn"](around:60,${lat},${lng});
-  way["building"](around:25,${lat},${lng});
-  way["landuse"="residential"](around:15,${lat},${lng});
-  way["boundary"="land_area"](around:15,${lat},${lng});
-);
-out geom tags;`;
-
-  try {
-    const resp = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'data=' + encodeURIComponent(query),
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-
-    let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
-
-    for (const el of (data.elements || [])) {
-      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-      const sqft = osmPolyArea(el.geometry) * 10.7639;
-      const t = el.tags || {};
-
-      if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
-        grassSqft += sqft;
-      } else if (t.building) {
-        buildingSqft += sqft;
-      } else if (t.landuse === 'residential' || t.boundary === 'land_area') {
-        // Only treat as a single lot if it's a plausible residential parcel size
-        if (sqft >= 1200 && sqft <= 22000) lotSqft += sqft;
-      }
-    }
-
-    let result = 0, confidence = '', state = 'success';
-
-    if (grassSqft >= 300) {
-      // Direct grass/lawn polygons found — most accurate
-      result = grassSqft;
-      confidence = 'Measured from grass area in OpenStreetMap';
-      state = 'success';
-    } else if (lotSqft >= 1200) {
-      // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
-      result = Math.max(400, (lotSqft - buildingSqft) * 0.78);
-      confidence = 'Estimated from lot boundary — draw to refine';
-      state = 'estimate';
-    } else if (buildingSqft >= 500) {
-      // Only have building; use regional average lot-to-building ratio to estimate
-      result = buildingSqft * 2.0;
-      confidence = 'Rough estimate from building footprint — draw to refine';
-      state = 'estimate';
-    }
-
-    if (result >= 300 && result <= 12000) {
-      showAutoStatus(confidence, state);
-      setMeasured(Math.round(result),
-        state === 'success' ? 'Auto — OpenStreetMap grass data'
-                            : 'Estimated from map boundary data');
-    } else {
-      showAutoStatus('No usable map data found — draw the yard boundary below', 'warn', '⚠');
-      document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
-    }
-  } catch (err) {
-    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
-    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
-  }
-}
-
 function applyArea(poly, source) {
   const m2   = google.maps.geometry.spherical.computeArea(poly.getPath());
-  const sqft = Math.round(m2 * 10.7639);
+  // Apply 0.95 calibration factor — polygon tracing tends to over-capture edges by ~5%
+  const sqft = Math.round(m2 * 10.7639 * 0.95);
   setMeasured(sqft, source);
 }
 
@@ -725,7 +760,6 @@ function resetMap() {
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
-  document.getElementById('auto-detect-status').style.display = 'none';
   document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
   drawingManager = null; map = null;
 }
@@ -880,6 +914,67 @@ function calc(){
   });
 }
 calc();
+
+// ── APPROVE / REJECT MODAL ──
+function openApprove() {
+  // Pre-fill address from the map search if available
+  const mapAddr = document.getElementById('map-addr-label').textContent;
+  if (mapAddr) document.getElementById('m-address').value = mapAddr;
+  // Sync quote total
+  document.getElementById('modal-total-display').textContent = document.getElementById('r-total').textContent;
+  document.getElementById('modal-form-view').style.display = 'block';
+  document.getElementById('modal-sent-view').style.display = 'none';
+  document.getElementById('approve-modal').classList.add('open');
+}
+function closeApprove() {
+  document.getElementById('approve-modal').classList.remove('open');
+}
+function submitApprove() {
+  const name    = document.getElementById('m-name').value.trim();
+  const address = document.getElementById('m-address').value.trim();
+  const phone   = document.getElementById('m-phone').value.trim();
+  const email   = document.getElementById('m-email').value.trim();
+  if (!name || !phone) {
+    alert('Please enter at least the client name and phone number.');
+    return;
+  }
+  // Store quote data — ready for Jobber API when integration is built
+  const quoteData = {
+    client: { name, address, phone, email },
+    total: document.getElementById('r-total').textContent,
+    sqft: document.getElementById('sqft').value,
+    timestamp: new Date().toISOString(),
+  };
+  console.log('Quote approved — ready for Jobber:', quoteData);
+  // Show confirmation
+  document.getElementById('modal-form-view').style.display = 'none';
+  document.getElementById('modal-sent-view').style.display = 'block';
+}
+
+function openReject() {
+  document.getElementById('reject-modal').classList.add('open');
+}
+function closeReject() {
+  document.getElementById('reject-modal').classList.remove('open');
+}
+function discardQuote() {
+  // Reset all sliders to default
+  ['sqft','disposal','bags','slope','overgrown','aeration','overseeding','rockbed',
+   'fruit','pine','weed','debris','fert','obstructions'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.id === 'sqft' ? 1500 : el.id === 'bags' ? 2 : 0;
+  });
+  activeDiscount = null;
+  ecoOn = false;
+  document.getElementById('eco-track').style.background = '#ddd';
+  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
+  document.getElementById('eco-label').style.color = '#bbb';
+  document.querySelectorAll('.discount-cell').forEach(c => c.classList.remove('active'));
+  resetMap();
+  calc();
+  closeReject();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 </script>
 </body>
 </html>
