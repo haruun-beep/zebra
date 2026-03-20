@@ -685,17 +685,22 @@ out geom tags;`;
       state = 'estimate';
     }
 
-    if (result >= 300 && result <= 12000) {
+    if (grassSqft >= 300 && result >= 300 && result <= 12000) {
+      // Best case: direct grass polygons from OSM
       showAutoStatus(confidence, state);
-      setMeasured(Math.round(result),
-        state === 'success' ? 'Auto — OpenStreetMap grass data'
-                            : 'Estimated from map boundary data');
+      setMeasured(Math.round(result), 'Auto — OpenStreetMap grass data');
     } else {
-      // OSM came up empty — try Edmonton Open Data as fallback
+      // No reliable grass data — try Edmonton Open Data first (more accurate than building estimate)
       const edmontonResult = await queryEdmontonLotSize(buildingSqft);
       if (!edmontonResult) {
-        showAutoStatus('No map data found — draw the yard boundary below', 'warn', '⚠');
-        document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+        // Edmonton failed — fall back to rough building estimate if we have one
+        if (result >= 300 && result <= 12000) {
+          showAutoStatus(confidence, state);
+          setMeasured(Math.round(result), 'Estimated from map boundary data');
+        } else {
+          showAutoStatus('No map data found — draw the yard boundary below', 'warn', '⚠');
+          document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+        }
       }
     }
   } catch (err) {
@@ -742,15 +747,24 @@ async function queryEdmontonLotSize(knownBuildingSqft) {
 
   try {
     // Historical assessment dataset — has lot_size field (in m²), most recent year first
-    const url = 'https://data.edmonton.ca/resource/qi6a-xuwt.json?' +
-      '$select=lot_size,assessment_year' +
-      '&house_number=' + encodeURIComponent(houseNumber) +
-      '&street_name='  + encodeURIComponent(route) +
-      '&$order=assessment_year%20DESC&$limit=1';
+    const fetchEdmontonRows = async (streetName) => {
+      const url = 'https://data.edmonton.ca/resource/qi6a-xuwt.json?' +
+        '$select=lot_size,assessment_year' +
+        '&house_number=' + encodeURIComponent(houseNumber) +
+        '&street_name='  + encodeURIComponent(streetName) +
+        '&$order=assessment_year%20DESC&$limit=1';
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    };
 
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const rows = await resp.json();
+    let rows = await fetchEdmontonRows(route);
+
+    // If no match, retry without quadrant suffix (NW/SW/NE/SE) — some dataset entries omit it
+    if (!rows.length) {
+      const routeNoQuadrant = route.replace(/\s+\b(NW|SW|NE|SE)\b\s*$/, '').trim();
+      if (routeNoQuadrant !== route) rows = await fetchEdmontonRows(routeNoQuadrant);
+    }
 
     if (!rows.length || !rows[0].lot_size) return false;
 
