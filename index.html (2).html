@@ -155,22 +155,24 @@
   }
   .btn-go:hover { background: var(--green-dark); }
 
+  #map-header {
+    display: none; align-items: center; gap: 8px;
+    padding: 7px 0 4px; font-size: 12px; color: #555;
+  }
+  #map-addr-label {
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 600; color: var(--green-deep);
+  }
   #map-wrap {
-    width: 100%; height: 480px; border-radius: 10px; border: 1.5px solid var(--green-mid);
-    overflow: hidden; margin: 10px 0; display: none; position: relative;
+    width: 100%; height: 420px; border-radius: 10px; border: 1.5px solid var(--green-mid);
+    overflow: hidden; margin: 6px 0 0; display: none; position: relative;
   }
   #google-map { width: 100%; height: 100%; }
-  .map-bar {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: rgba(255,255,255,0.96); padding: 9px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    border-top: 1px solid #e0e0e0;
-  }
-  .map-addr { font-size: 12px; color: #555; flex: 1; margin-right: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .btn-confirm-site {
-    padding: 7px 14px; background: var(--green); color: var(--white); border: none;
-    border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
-    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+    display: none; width: 100%; margin-top: 8px;
+    padding: 9px 14px; background: var(--green); color: var(--white); border: none;
+    border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s; text-align: center;
   }
   .btn-confirm-site:hover { background: var(--green-dark); }
 
@@ -341,13 +343,13 @@
       </div>
       <div class="field-desc" style="margin-bottom:8px">Type the client's address — Google will auto-suggest. Selecting one pulls up the satellite view and measures the yard.</div>
 
+      <div id="map-header">
+        <span id="map-addr-label"></span>
+      </div>
       <div id="map-wrap">
         <div id="google-map"></div>
-        <div class="map-bar">
-          <span class="map-addr" id="map-addr-label"></span>
-          <button class="btn-confirm-site" onclick="confirmSite()">✓ Confirm — draw yard</button>
-        </div>
       </div>
+      <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw to refine</button>
 
       <div id="draw-tip">
         <strong>Draw mode on:</strong> Click points on the satellite image to trace the yard boundary. Close the shape by clicking your first point. Sq ft calculates automatically.
@@ -687,12 +689,17 @@ function searchAddress() {
 
 function showMap(latLng, address) {
   const wrap = document.getElementById('map-wrap');
+  const header = document.getElementById('map-header');
+  const drawBtn = document.querySelector('.btn-confirm-site');
   wrap.style.display = 'block';
+  header.style.display = 'flex';
+  drawBtn.style.display = 'block';
   document.getElementById('map-addr-label').textContent = address;
   if (!map) {
     map = new google.maps.Map(document.getElementById('google-map'), {
       zoom: 19, center: latLng, mapTypeId: 'satellite', tilt: 0,
       disableDefaultUI: true, zoomControl: true, fullscreenControl: true,
+      gestureHandling: 'none',
     });
   } else {
     map.setCenter(latLng); map.setZoom(19);
@@ -757,18 +764,22 @@ async function autoDetectLawn(latLng) {
   showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
   document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
 
-  // Radius reduced to 30m for grass to stay within the subject lot.
-  // Replaced non-standard landuse=residential / boundary=land_area with
-  // boundary=cadastral and landuse=plot which actually appear on individual parcels.
-  const query = `[out:json][timeout:18];
+  // Grass/lawn: 30m radius to stay within the subject lot.
+  // Building + parcel: 40m radius to account for geocoded pin landing at the kerb
+  // rather than the lot centre. Both way and relation types queried since cadastral
+  // parcels are often stored as relations in OSM.
+  const query = `[out:json][timeout:25];
 (
   way["natural"="grass"](around:30,${lat},${lng});
   way["landuse"="grass"](around:30,${lat},${lng});
   way["leisure"="garden"](around:30,${lat},${lng});
   way["landuse"="lawn"](around:30,${lat},${lng});
-  way["building"](around:20,${lat},${lng});
-  way["boundary"="cadastral"](around:20,${lat},${lng});
-  way["landuse"="plot"](around:20,${lat},${lng});
+  way["building"](around:40,${lat},${lng});
+  relation["building"](around:40,${lat},${lng});
+  way["boundary"="cadastral"](around:40,${lat},${lng});
+  relation["boundary"="cadastral"](around:40,${lat},${lng});
+  way["landuse"="plot"](around:40,${lat},${lng});
+  relation["landuse"="plot"](around:40,${lat},${lng});
 );
 out geom tags;`;
 
@@ -797,17 +808,27 @@ out geom tags;`;
     let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
 
     for (const el of (data.elements || [])) {
-      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
-      const sqft = osmPolyArea(el.geometry) * 10.7639;
       const t = el.tags || {};
+      let geom = null;
+
+      if (el.type === 'way' && el.geometry && el.geometry.length >= 3) {
+        geom = el.geometry;
+      } else if (el.type === 'relation' && Array.isArray(el.members)) {
+        // Use the outer ring of the relation for area calculation
+        const outer = el.members.find(m => m.role === 'outer' && m.geometry && m.geometry.length >= 3);
+        if (outer) geom = outer.geometry;
+      }
+
+      if (!geom) continue;
+      const sqft = osmPolyArea(geom) * 10.7639;
 
       if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
         grassSqft += sqft;
       } else if (t.building) {
         buildingSqft += sqft;
       } else if (t.boundary === 'cadastral' || t.landuse === 'plot') {
-        // Individual parcel boundary — only accept plausible residential lot sizes
-        if (sqft >= 1200 && sqft <= 22000) lotSqft += sqft;
+        // Individual parcel boundary — accept any plausible residential lot size (incl. townhouses)
+        if (sqft >= 600 && sqft <= 22000) lotSqft += sqft;
       }
     }
 
@@ -818,14 +839,18 @@ out geom tags;`;
       result = grassSqft;
       confidence = 'Measured from grass area in OpenStreetMap';
       state = 'success';
-    } else if (lotSqft >= 1200) {
+    } else if (lotSqft >= 600) {
       // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
-      result = Math.max(400, (lotSqft - buildingSqft) * 0.78);
+      result = Math.max(300, (lotSqft - buildingSqft) * 0.78);
       confidence = 'Estimated from lot boundary — draw to refine';
       state = 'estimate';
-    } else if (buildingSqft >= 500) {
-      // Only have building; use regional average lot-to-building ratio to estimate
-      result = buildingSqft * 2.0;
+    } else if (buildingSqft >= 300) {
+      // Only have building; use size-aware lot-to-building ratio to estimate lawn area
+      let ratio;
+      if (buildingSqft <= 800) ratio = 2.5;       // small house — likely smaller dense lot
+      else if (buildingSqft <= 1500) ratio = 2.0;  // typical detached
+      else ratio = 1.6;                             // large house — tighter lot ratio
+      result = buildingSqft * ratio;
       confidence = 'Rough estimate from building footprint — draw to refine';
       state = 'estimate';
     }
@@ -871,6 +896,8 @@ function resetMap() {
   document.getElementById('area-badge').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
+  document.getElementById('map-header').style.display = 'none';
+  document.querySelector('.btn-confirm-site').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
   document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
   drawingManager = null; map = null;
