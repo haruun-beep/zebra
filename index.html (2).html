@@ -733,6 +733,118 @@ function initDrawing() {
   });
 }
 
+// ── AUTO-DETECT LAWN AREA via OpenStreetMap Overpass API ──
+
+function osmPolyArea(geomNodes) {
+  // geomNodes is an array of {lat, lon} from Overpass out geom
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  return google.maps.geometry.spherical.computeArea(path); // returns m²
+}
+
+function showAutoStatus(msg, state, icon) {
+  const el   = document.getElementById('auto-detect-status');
+  const msgEl = document.getElementById('auto-detect-msg');
+  const iconEl = document.getElementById('auto-detect-icon');
+  el.style.display = 'flex';
+  el.className = state || 'loading';
+  msgEl.textContent = msg;
+  iconEl.textContent = icon || (state === 'success' ? '✓' : state === 'estimate' ? '~' : state === 'warn' ? '⚠' : '⏳');
+}
+
+async function autoDetectLawn(latLng) {
+  const lat = latLng.lat();
+  const lng = latLng.lng();
+  showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
+  document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
+
+  // Radius reduced to 30m for grass to stay within the subject lot.
+  // Replaced non-standard landuse=residential / boundary=land_area with
+  // boundary=cadastral and landuse=plot which actually appear on individual parcels.
+  const query = `[out:json][timeout:18];
+(
+  way["natural"="grass"](around:30,${lat},${lng});
+  way["landuse"="grass"](around:30,${lat},${lng});
+  way["leisure"="garden"](around:30,${lat},${lng});
+  way["landuse"="lawn"](around:30,${lat},${lng});
+  way["building"](around:20,${lat},${lng});
+  way["boundary"="cadastral"](around:20,${lat},${lng});
+  way["landuse"="plot"](around:20,${lat},${lng});
+);
+out geom tags;`;
+
+  const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+
+  async function fetchOverpass(query) {
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query),
+        });
+        if (resp.ok) return resp.json();
+      } catch (_) { /* try next endpoint */ }
+    }
+    throw new Error('All Overpass endpoints failed');
+  }
+
+  try {
+    const data = await fetchOverpass(query);
+
+    let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
+
+    for (const el of (data.elements || [])) {
+      if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue;
+      const sqft = osmPolyArea(el.geometry) * 10.7639;
+      const t = el.tags || {};
+
+      if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
+        grassSqft += sqft;
+      } else if (t.building) {
+        buildingSqft += sqft;
+      } else if (t.boundary === 'cadastral' || t.landuse === 'plot') {
+        // Individual parcel boundary — only accept plausible residential lot sizes
+        if (sqft >= 1200 && sqft <= 22000) lotSqft += sqft;
+      }
+    }
+
+    let result = 0, confidence = '', state = 'success';
+
+    if (grassSqft >= 300) {
+      // Direct grass/lawn polygons found — most accurate
+      result = grassSqft;
+      confidence = 'Measured from grass area in OpenStreetMap';
+      state = 'success';
+    } else if (lotSqft >= 1200) {
+      // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
+      result = Math.max(400, (lotSqft - buildingSqft) * 0.78);
+      confidence = 'Estimated from lot boundary — draw to refine';
+      state = 'estimate';
+    } else if (buildingSqft >= 500) {
+      // Only have building; use regional average lot-to-building ratio to estimate
+      result = buildingSqft * 2.0;
+      confidence = 'Rough estimate from building footprint — draw to refine';
+      state = 'estimate';
+    }
+
+    if (result >= 300 && result <= 12000) {
+      showAutoStatus(confidence, state);
+      setMeasured(Math.round(result),
+        state === 'success' ? 'Auto — OpenStreetMap grass data'
+                            : 'Estimated from map boundary data');
+    } else {
+      showAutoStatus('No usable map data found — draw the yard boundary below', 'warn', '⚠');
+      document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+    }
+  } catch (err) {
+    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
+    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+  }
+}
+
 function applyArea(poly, source) {
   const m2   = google.maps.geometry.spherical.computeArea(poly.getPath());
   // Apply 0.95 calibration factor — polygon tracing tends to over-capture edges by ~5%
@@ -746,7 +858,7 @@ function setMeasured(sqft, source) {
   document.getElementById('sqft').value = rounded;
   document.getElementById('auto-badge').style.display = 'inline-block';
   document.getElementById('sqft-hint').textContent = 'Auto-measured — drag to adjust if needed.';
-  document.getElementById('badge-sqft').textContent = sqft.toLocaleString();
+  document.getElementById('badge-sqft').textContent = rounded.toLocaleString();
   document.getElementById('badge-src').textContent = source;
   const badge = document.getElementById('area-badge');
   badge.style.display = 'flex';
