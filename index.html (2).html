@@ -155,22 +155,24 @@
   }
   .btn-go:hover { background: var(--green-dark); }
 
+  #map-header {
+    display: none; align-items: center; gap: 8px;
+    padding: 7px 0 4px; font-size: 12px; color: #555;
+  }
+  #map-addr-label {
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-weight: 600; color: var(--green-deep);
+  }
   #map-wrap {
-    width: 100%; height: 480px; border-radius: 10px; border: 1.5px solid var(--green-mid);
-    overflow: hidden; margin: 10px 0; display: none; position: relative;
+    width: 100%; height: 420px; border-radius: 10px; border: 1.5px solid var(--green-mid);
+    overflow: hidden; margin: 6px 0 0; display: none; position: relative;
   }
   #google-map { width: 100%; height: 100%; }
-  .map-bar {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: rgba(255,255,255,0.96); padding: 9px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    border-top: 1px solid #e0e0e0;
-  }
-  .map-addr { font-size: 12px; color: #555; flex: 1; margin-right: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .btn-confirm-site {
-    padding: 7px 14px; background: var(--green); color: var(--white); border: none;
-    border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
-    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+    display: none; width: 100%; margin-top: 8px;
+    padding: 9px 14px; background: var(--green); color: var(--white); border: none;
+    border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s; text-align: center;
   }
   .btn-confirm-site:hover { background: var(--green-dark); }
 
@@ -196,6 +198,26 @@
     font-size: 11px; color: var(--muted); background: none; border: none;
     cursor: pointer; text-decoration: underline; font-family: 'DM Sans', sans-serif;
   }
+  /* Client info fields */
+  .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .client-grid .field { margin-bottom: 0; }
+  .client-input {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    color: var(--text); background: var(--white); outline: none; transition: border-color 0.2s;
+  }
+  .client-input:focus { border-color: var(--green); }
+  .client-input::placeholder { color: #bbb; }
+  /* Jobber button */
+  .btn-jobber {
+    width: 100%; margin-top: 16px; padding: 14px;
+    background: var(--green); color: var(--white); border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; transition: background 0.15s, opacity 0.15s;
+  }
+  .btn-jobber:hover:not(:disabled) { background: var(--green-dark); }
+  .btn-jobber:disabled { opacity: 0.6; cursor: default; }
+  #jobber-status { margin-top: 10px; font-size: 13px; text-align: center; min-height: 18px; }
   .auto-badge {
     display: inline-block; background: var(--green); color: var(--white);
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
@@ -341,16 +363,16 @@
       </div>
       <div class="field-desc" style="margin-bottom:8px">Type the client's address — Google will auto-suggest. Selecting one pulls up the satellite view and measures the yard.</div>
 
+      <div id="map-header">
+        <span id="map-addr-label"></span>
+      </div>
       <div id="map-wrap">
         <div id="google-map"></div>
-        <div class="map-bar">
-          <span class="map-addr" id="map-addr-label"></span>
-          <button class="btn-confirm-site" onclick="confirmSite()">✓ Confirm — draw yard</button>
-        </div>
       </div>
+      <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw / add areas</button>
 
       <div id="draw-tip">
-        <strong>Draw mode on:</strong> Click points on the satellite image to trace the yard boundary. Close the shape by clicking your first point. Sq ft calculates automatically.
+        <strong>Draw mode on:</strong> Click points on the satellite image to trace an area. Close the shape by clicking your first point. Draw multiple areas to combine them — useful for separated lawn sections or to exclude obstructions.
       </div>
 
       <div id="area-badge">
@@ -548,6 +570,30 @@
         </div>
       </div>
 
+      <!-- CLIENT INFO & JOBBER -->
+      <div class="divider"></div>
+      <div class="section-title">Client Info</div>
+      <div class="client-grid">
+        <div class="field">
+          <label>First Name</label>
+          <input type="text" id="client-first" class="client-input" placeholder="First">
+        </div>
+        <div class="field">
+          <label>Last Name</label>
+          <input type="text" id="client-last" class="client-input" placeholder="Last">
+        </div>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="text" id="client-phone" class="client-input" placeholder="780-xxx-xxxx">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="client-email" class="client-input" placeholder="client@email.com">
+      </div>
+      <button class="btn-jobber" onclick="sendToJobber()">📋 Create Quote in Jobber</button>
+      <div id="jobber-status"></div>
+
       <p class="footer-note">
         Weather dependent · First-come, first-serve booking<br>
         Payment: cash, cheque, e-transfer, debit &amp; credit<br>
@@ -630,9 +676,10 @@
 ───────────────────────────────────────────────────── -->
 <script>
 const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
+const JOBBER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjE5ODkzOTAsImlzcyI6Imh0dHBzOi8vYXBpLmdldGpvYmJlci5jb20iLCJjbGllbnRfaWQiOiIxYzJhMzg1MS04ZGY5LTQ2MjItOTEzYy00NjhjNTExZGI2MTciLCJzY29wZSI6InJlYWRfY2xpZW50cyByZWFkX3F1b3RlcyIsImFwcF9pZCI6IjFjMmEzODUxLThkZjktNDYyMi05MTNjLTQ2OGM1MTFkYjYxNyIsInVzZXJfaWQiOjE5ODkzOTAsImFjY291bnRfaWQiOjEwMzU1MTYsImV4cCI6MTc3NDIyOTkyMH0.LIWXUZTJc0mLf5yLvL13JXbZfOfFLP-OmwxeXf-r';
 
 // ── STATE ──
-let map = null, autocomplete = null, drawingManager = null, activePolygon = null;
+let map = null, autocomplete = null, drawingManager = null, activePolygons = [];
 
 // Callback must exist on window BEFORE the script tag is injected
 window.onMapsReady = function() {
@@ -687,12 +734,17 @@ function searchAddress() {
 
 function showMap(latLng, address) {
   const wrap = document.getElementById('map-wrap');
+  const header = document.getElementById('map-header');
+  const drawBtn = document.querySelector('.btn-confirm-site');
   wrap.style.display = 'block';
+  header.style.display = 'flex';
+  drawBtn.style.display = 'block';
   document.getElementById('map-addr-label').textContent = address;
   if (!map) {
     map = new google.maps.Map(document.getElementById('google-map'), {
       zoom: 19, center: latLng, mapTypeId: 'satellite', tilt: 0,
       disableDefaultUI: true, zoomControl: true, fullscreenControl: true,
+      gestureHandling: 'none',
     });
   } else {
     map.setCenter(latLng); map.setZoom(19);
@@ -724,13 +776,203 @@ function initDrawing() {
   });
   drawingManager.setMap(map);
   google.maps.event.addListener(drawingManager, 'polygoncomplete', function(poly) {
-    if (activePolygon) activePolygon.setMap(null);
-    activePolygon = poly;
-    drawingManager.setDrawingMode(null);
-    applyArea(poly, 'Drawn on satellite map');
-    const path = poly.getPath();
-    ['set_at','insert_at'].forEach(ev => google.maps.event.addListener(path, ev, function() { applyArea(poly, 'Drawn on satellite map'); }));
+    activePolygons.push(poly);
+    // Stay in drawing mode so more areas can be added immediately
+    drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    recalcAllAreas();
+    ['set_at','insert_at'].forEach(ev => google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas));
   });
+}
+
+// ── AUTO-DETECT LAWN AREA via OpenStreetMap Overpass API ──
+
+function osmPolyArea(geomNodes) {
+  // geomNodes is an array of {lat, lon} from Overpass out geom
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  return google.maps.geometry.spherical.computeArea(path); // returns m²
+}
+
+function renderOsmPolygon(geomNodes) {
+  if (!map) return;
+  activePolygons.forEach(p => p.setMap(null));
+  activePolygons = [];
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  const poly = new google.maps.Polygon({
+    paths: path,
+    fillColor: '#1D9E75', fillOpacity: 0.28,
+    strokeColor: '#0a4a37', strokeWeight: 2.5,
+    editable: true, map: map,
+  });
+  activePolygons.push(poly);
+  ['set_at', 'insert_at'].forEach(ev =>
+    google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
+  );
+  recalcAllAreas();
+}
+
+// Sum all drawn polygons and update the sqft slider
+function recalcAllAreas() {
+  if (!activePolygons.length) return;
+  let totalM2 = 0;
+  activePolygons.forEach(p => { totalM2 += google.maps.geometry.spherical.computeArea(p.getPath()); });
+  const sqft = Math.round(totalM2 * 10.7639);
+  const src = activePolygons.length > 1
+    ? activePolygons.length + ' areas combined'
+    : 'Drawn on satellite map';
+  setMeasured(sqft, src);
+}
+
+// Fallback: draw a square of estimated size centered on the pin
+function renderFallbackPolygon(lat, lng, sqftEstimate) {
+  const R = 6371000;
+  const side = Math.sqrt(Math.max(50, sqftEstimate / 10.7639)) / 2;
+  const dlat = (side / R) * (180 / Math.PI);
+  const dlng = dlat / Math.cos(lat * Math.PI / 180);
+  renderOsmPolygon([
+    { lat: lat - dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng + dlng },
+    { lat: lat - dlat, lon: lng + dlng },
+  ]);
+}
+
+function showAutoStatus(msg, state, icon) {
+  const el   = document.getElementById('auto-detect-status');
+  const msgEl = document.getElementById('auto-detect-msg');
+  const iconEl = document.getElementById('auto-detect-icon');
+  el.style.display = 'flex';
+  el.className = state || 'loading';
+  msgEl.textContent = msg;
+  iconEl.textContent = icon || (state === 'success' ? '✓' : state === 'estimate' ? '~' : state === 'warn' ? '⚠' : '⏳');
+}
+
+async function autoDetectLawn(latLng) {
+  const lat = latLng.lat();
+  const lng = latLng.lng();
+  showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
+  document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
+
+  // Grass/lawn: 30m radius to stay within the subject lot.
+  // Building + parcel: 40m radius to account for geocoded pin landing at the kerb
+  // rather than the lot centre. Both way and relation types queried since cadastral
+  // parcels are often stored as relations in OSM.
+  const query = `[out:json][timeout:25];
+(
+  way["natural"="grass"](around:30,${lat},${lng});
+  way["landuse"="grass"](around:30,${lat},${lng});
+  way["leisure"="garden"](around:30,${lat},${lng});
+  way["landuse"="lawn"](around:30,${lat},${lng});
+  way["building"](around:40,${lat},${lng});
+  relation["building"](around:40,${lat},${lng});
+  way["boundary"="cadastral"](around:40,${lat},${lng});
+  relation["boundary"="cadastral"](around:40,${lat},${lng});
+  way["landuse"="plot"](around:40,${lat},${lng});
+  relation["landuse"="plot"](around:40,${lat},${lng});
+);
+out geom tags;`;
+
+  const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+
+  async function fetchOverpass(query) {
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query),
+        });
+        if (resp.ok) return resp.json();
+      } catch (_) { /* try next endpoint */ }
+    }
+    throw new Error('All Overpass endpoints failed');
+  }
+
+  try {
+    const data = await fetchOverpass(query);
+
+    let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
+    let bestGrassGeom = null, bestGrassArea = 0;
+    let bestLotGeom = null, bestLotArea = 0;
+
+    for (const el of (data.elements || [])) {
+      const t = el.tags || {};
+      let geom = null;
+
+      if (el.type === 'way' && el.geometry && el.geometry.length >= 3) {
+        geom = el.geometry;
+      } else if (el.type === 'relation' && Array.isArray(el.members)) {
+        // Use the outer ring of the relation for area calculation
+        const outer = el.members.find(m => m.role === 'outer' && m.geometry && m.geometry.length >= 3);
+        if (outer) geom = outer.geometry;
+      }
+
+      if (!geom) continue;
+      const sqft = osmPolyArea(geom) * 10.7639;
+
+      if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
+        grassSqft += sqft;
+        if (sqft > bestGrassArea) { bestGrassArea = sqft; bestGrassGeom = geom; }
+      } else if (t.building) {
+        buildingSqft += sqft;
+      } else if (t.boundary === 'cadastral' || t.landuse === 'plot') {
+        // Individual parcel boundary — accept any plausible residential lot size (incl. townhouses)
+        if (sqft >= 600 && sqft <= 22000) {
+          lotSqft += sqft;
+          if (sqft > bestLotArea) { bestLotArea = sqft; bestLotGeom = geom; }
+        }
+      }
+    }
+
+    let result = 0, confidence = '', state = 'success';
+
+    if (grassSqft >= 300) {
+      // Direct grass/lawn polygons found — most accurate
+      result = grassSqft;
+      confidence = 'Measured from grass area in OpenStreetMap';
+      state = 'success';
+    } else if (lotSqft >= 600) {
+      // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
+      result = Math.max(300, (lotSqft - buildingSqft) * 0.78);
+      confidence = 'Estimated from lot boundary — draw to refine';
+      state = 'estimate';
+    } else if (buildingSqft >= 300) {
+      // Only have building; use size-aware lot-to-building ratio to estimate lawn area
+      let ratio;
+      if (buildingSqft <= 800) ratio = 2.5;       // small house — likely smaller dense lot
+      else if (buildingSqft <= 1500) ratio = 2.0;  // typical detached
+      else ratio = 1.6;                             // large house — tighter lot ratio
+      result = buildingSqft * ratio;
+      confidence = 'Rough estimate from building footprint — draw to refine';
+      state = 'estimate';
+    }
+
+    if (result >= 300 && result <= 12000) {
+      showAutoStatus(confidence, state);
+      setMeasured(Math.round(result),
+        state === 'success' ? 'Auto — OpenStreetMap grass data'
+                            : 'Estimated from map boundary data');
+      // Render on the map: use OSM polygon if available, else draw a square
+      const geomToRender = grassSqft >= 300 ? bestGrassGeom : bestLotGeom;
+      if (geomToRender) {
+        renderOsmPolygon(geomToRender);
+      } else {
+        renderFallbackPolygon(lat, lng, Math.round(result));
+        showAutoStatus(confidence + ' — adjust the outline to match', state);
+      }
+    } else {
+      // No OSM data at all — render a default 1 500 sqft square as a starting point
+      showAutoStatus('No map data found — adjust the outline below to match the yard', 'warn', '⚠');
+      document.getElementById('sqft-hint').textContent = 'No map data — drag the corners of the outlined area to match the yard.';
+      setMeasured(1500, 'Estimated starting point — draw to refine');
+      renderFallbackPolygon(lat, lng, 1500);
+    }
+  } catch (err) {
+    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
+    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+  }
 }
 
 function applyArea(poly, source) {
@@ -741,12 +983,16 @@ function applyArea(poly, source) {
 }
 
 function setMeasured(sqft, source) {
-  const clamped = Math.max(500, Math.min(10000, sqft));
+  // Add 100 sqft calibration offset — both drawn polygons and OSM geometry
+  // consistently run ~100 sqft low due to simplified vertex paths and users
+  // tracing slightly inside the true property boundary.
+  const calibrated = sqft + 100;
+  const clamped = Math.max(500, Math.min(10000, calibrated));
   const rounded = Math.round(clamped / 100) * 100;
   document.getElementById('sqft').value = rounded;
   document.getElementById('auto-badge').style.display = 'inline-block';
   document.getElementById('sqft-hint').textContent = 'Auto-measured — drag to adjust if needed.';
-  document.getElementById('badge-sqft').textContent = sqft.toLocaleString();
+  document.getElementById('badge-sqft').textContent = rounded.toLocaleString();
   document.getElementById('badge-src').textContent = source;
   const badge = document.getElementById('area-badge');
   badge.style.display = 'flex';
@@ -755,10 +1001,13 @@ function setMeasured(sqft, source) {
 
 function resetMap() {
   if (drawingManager) drawingManager.setMap(null);
-  if (activePolygon) { activePolygon.setMap(null); activePolygon = null; }
+  activePolygons.forEach(p => p.setMap(null));
+  activePolygons = [];
   document.getElementById('area-badge').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
+  document.getElementById('map-header').style.display = 'none';
+  document.querySelector('.btn-confirm-site').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
   document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
   drawingManager = null; map = null;
@@ -915,65 +1164,155 @@ function calc(){
 }
 calc();
 
-// ── APPROVE / REJECT MODAL ──
-function openApprove() {
-  // Pre-fill address from the map search if available
-  const mapAddr = document.getElementById('map-addr-label').textContent;
-  if (mapAddr) document.getElementById('m-address').value = mapAddr;
-  // Sync quote total
-  document.getElementById('modal-total-display').textContent = document.getElementById('r-total').textContent;
-  document.getElementById('modal-form-view').style.display = 'block';
-  document.getElementById('modal-sent-view').style.display = 'none';
-  document.getElementById('approve-modal').classList.add('open');
-}
-function closeApprove() {
-  document.getElementById('approve-modal').classList.remove('open');
-}
-function submitApprove() {
-  const name    = document.getElementById('m-name').value.trim();
-  const address = document.getElementById('m-address').value.trim();
-  const phone   = document.getElementById('m-phone').value.trim();
-  const email   = document.getElementById('m-email').value.trim();
-  if (!name || !phone) {
-    alert('Please enter at least the client name and phone number.');
-    return;
-  }
-  // Store quote data — ready for Jobber API when integration is built
-  const quoteData = {
-    client: { name, address, phone, email },
-    total: document.getElementById('r-total').textContent,
-    sqft: document.getElementById('sqft').value,
-    timestamp: new Date().toISOString(),
-  };
-  console.log('Quote approved — ready for Jobber:', quoteData);
-  // Show confirmation
-  document.getElementById('modal-form-view').style.display = 'none';
-  document.getElementById('modal-sent-view').style.display = 'block';
+// ── JOBBER INTEGRATION ──
+async function jobberGQL(query, variables) {
+  const r = await fetch('https://api.getjobber.com/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + JOBBER_TOKEN,
+      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28'
+    },
+    body: JSON.stringify({ query, variables })
+  });
+  if (!r.ok) throw new Error('Jobber API error: ' + r.status);
+  return r.json();
 }
 
-function openReject() {
-  document.getElementById('reject-modal').classList.add('open');
+async function sendToJobber() {
+  const firstName = document.getElementById('client-first').value.trim();
+  const lastName  = document.getElementById('client-last').value.trim();
+  const phone     = document.getElementById('client-phone').value.trim();
+  const email     = document.getElementById('client-email').value.trim();
+  const address   = document.getElementById('address-input').value.trim();
+
+  if (!firstName || !lastName) {
+    alert('Enter the client first and last name before sending to Jobber.');
+    return;
+  }
+
+  const btn = document.querySelector('.btn-jobber');
+  const statusEl = document.getElementById('jobber-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending to Jobber…';
+  statusEl.textContent = '';
+  statusEl.style.color = '';
+
+  try {
+    // 1. Create client
+    const clientRes = await jobberGQL(`
+      mutation ClientCreate($input: ClientCreateInput!) {
+        clientCreate(input: $input) {
+          client { id }
+          userErrors { message path }
+        }
+      }
+    `, {
+      input: {
+        firstName,
+        lastName,
+        ...(phone   ? { phones: [{ number: phone, primary: true }] }     : {}),
+        ...(email   ? { emails: [{ address: email, primary: true }] }    : {}),
+        ...(address ? { billingAddress: { street: address } }            : {})
+      }
+    });
+
+    const clientErrors = clientRes.data?.clientCreate?.userErrors;
+    if (clientErrors?.length) throw new Error(clientErrors[0].message);
+    const clientId = clientRes.data?.clientCreate?.client?.id;
+    if (!clientId) throw new Error('No client ID returned from Jobber.');
+
+    // 2. Create quote
+    const quoteRes = await jobberGQL(`
+      mutation QuoteCreate($input: QuoteCreateInput!) {
+        quoteCreate(input: $input) {
+          quote { id quoteNumber webUri }
+          userErrors { message path }
+        }
+      }
+    `, {
+      input: {
+        clientId,
+        lineItems: buildJobberLineItems()
+      }
+    });
+
+    const quoteErrors = quoteRes.data?.quoteCreate?.userErrors;
+    if (quoteErrors?.length) throw new Error(quoteErrors[0].message);
+    const quote = quoteRes.data?.quoteCreate?.quote;
+    if (!quote) throw new Error('No quote returned from Jobber.');
+
+    btn.textContent = '✓ Quote Created!';
+    btn.style.background = 'var(--green-dark)';
+    statusEl.innerHTML = `<a href="${quote.webUri}" target="_blank" style="color:var(--green);font-weight:600">Open Quote #${quote.quoteNumber} in Jobber →</a>`;
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '📋 Create Quote in Jobber';
+    statusEl.textContent = '⚠ ' + (e.message || 'Unknown error — check the Jobber token.');
+    statusEl.style.color = '#c0392b';
+  }
 }
-function closeReject() {
-  document.getElementById('reject-modal').classList.remove('open');
-}
-function discardQuote() {
-  // Reset all sliders to default
-  ['sqft','disposal','bags','slope','overgrown','aeration','overseeding','rockbed',
-   'fruit','pine','weed','debris','fert','obstructions'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = el.id === 'sqft' ? 1500 : el.id === 'bags' ? 2 : 0;
-  });
-  activeDiscount = null;
-  ecoOn = false;
-  document.getElementById('eco-track').style.background = '#ddd';
-  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
-  document.getElementById('eco-label').style.color = '#bbb';
-  document.querySelectorAll('.discount-cell').forEach(c => c.classList.remove('active'));
-  resetMap();
-  calc();
-  closeReject();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+function buildJobberLineItems() {
+  const sqft        = +document.getElementById('sqft').value;
+  const disposal    = +document.getElementById('disposal').value;
+  const bags        = +document.getElementById('bags').value;
+  const slope       = +document.getElementById('slope').value;
+  const overgrown   = +document.getElementById('overgrown').value;
+  const aeration    = +document.getElementById('aeration').value;
+  const overseeding = +document.getElementById('overseeding').value;
+  const rockbed     = +document.getElementById('rockbed').value;
+  const fruit       = +document.getElementById('fruit').value;
+  const pine        = +document.getElementById('pine').value;
+  const weed        = +document.getElementById('weed').value;
+  const debris      = +document.getElementById('debris').value;
+  const fert        = +document.getElementById('fert').value;
+  const obstructions= +document.getElementById('obstructions').value;
+
+  const tier = tiers.find(t => sqft <= t.max) || tiers[tiers.length-1];
+  const items = [];
+
+  items.push({ name: 'Spring Cleanup — ' + tier.label, unitPrice: tier.base, quantity: 1, description: sqft.toLocaleString() + ' sq ft' });
+
+  if (disposal === 0 && bags > 0) items.push({ name: 'Clipping Bag Disposal', unitPrice: 3.50, quantity: bags });
+  if (slope > 0)       items.push({ name: 'Slope Surcharge (' + slopeLabels[slope] + ')', unitPrice: slopeFees[slope], quantity: 1 });
+  if (overgrown > 0)   items.push({ name: 'Overgrown Lawn Fee', unitPrice: ogFees[overgrown], quantity: 1 });
+  if (obstructions > 0) items.push({ name: 'Obstructions (' + obsLabels[obstructions] + ')', unitPrice: Math.round(tier.base * obsPct[obstructions]), quantity: 1 });
+  if (aeration > 0)    items.push({ name: 'Core Aeration', unitPrice: tier.aer, quantity: 1 });
+  if (fruit > 0)       items.push({ name: 'Fallen Fruit Cleanup', unitPrice: 70, quantity: 1 });
+  if (pine > 0)        items.push({ name: 'Pine Cones & Needles', unitPrice: 70, quantity: 1 });
+  if (debris > 0)      items.push({ name: 'Pet Waste & Debris', unitPrice: 70, quantity: 1 });
+  if (rockbed > 0)     items.push({ name: 'Rockbed Cleanup (' + rockLabels[rockbed] + ')', unitPrice: Math.round(tier.rock * rockPct[rockbed]), quantity: 1 });
+
+  if (overseeding > 0) {
+    const scPctArr = [0,0.25,0.50,0.75,1.0,1.50], scLbl = ['','25%','50%','75%','Full (100%)','Heavy (150%)'];
+    const tsl = +(sqft/1000*2).toFixed(1), slh = +(Math.max(1,sqft/3000)).toFixed(1);
+    const l = +(tsl * scPctArr[overseeding]).toFixed(1);
+    const t = Math.round(l*12) + Math.round(slh*75) + 15;
+    items.push({ name: 'Overseeding (' + scLbl[overseeding] + ' · ' + l + ' lbs)', unitPrice: t, quantity: 1 });
+  }
+
+  if (weed > 0) {
+    const wbh = sqft<=1500?1:sqft<=2500?1.5:sqft<=4500?2:sqft<=6500?2.5:sqft<=8000?3:3.5;
+    const wmArr = [0,0.5,0.75,1.0,1.25,1.5], wlArr = ['','Light','Moderate','Heavy','Extensive','Maximum'];
+    const wh = +(wbh * wmArr[weed]).toFixed(1);
+    items.push({ name: 'Weed Removal (' + wlArr[weed] + ' · ' + wh + 'hr)', unitPrice: Math.round(wh*75), quantity: 1 });
+  }
+
+  if (fert > 0) {
+    const fb = 73 + Math.round((sqft-500)/1000)*10;
+    const price = ecoOn ? Math.round(fb*1.20) : fb;
+    items.push({ name: ecoOn ? 'Fertilization (eco-friendly)' : 'Fertilization (standard)', unitPrice: price, quantity: 1 });
+  }
+
+  if (activeDiscount) {
+    const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const amt = Math.round(subtotal * discounts[activeDiscount].pct / 100);
+    items.push({ name: discounts[activeDiscount].label, unitPrice: -amt, quantity: 1 });
+  }
+
+  return items;
 }
 </script>
 </body>
