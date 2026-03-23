@@ -807,6 +807,7 @@ function renderOsmPolygon(geomNodes) {
   ['set_at', 'insert_at'].forEach(ev =>
     google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
   );
+  recalcAllAreas();
 }
 
 // Sum all drawn polygons and update the sqft slider
@@ -965,6 +966,7 @@ out geom tags;`;
       // No OSM data at all — render a default 1 500 sqft square as a starting point
       showAutoStatus('No map data found — adjust the outline below to match the yard', 'warn', '⚠');
       document.getElementById('sqft-hint').textContent = 'No map data — drag the corners of the outlined area to match the yard.';
+      setMeasured(1500, 'Estimated starting point — draw to refine');
       renderFallbackPolygon(lat, lng, 1500);
     }
   } catch (err) {
