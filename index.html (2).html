@@ -369,10 +369,10 @@
       <div id="map-wrap">
         <div id="google-map"></div>
       </div>
-      <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw to refine</button>
+      <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw / add areas</button>
 
       <div id="draw-tip">
-        <strong>Draw mode on:</strong> Click points on the satellite image to trace the yard boundary. Close the shape by clicking your first point. Sq ft calculates automatically.
+        <strong>Draw mode on:</strong> Click points on the satellite image to trace an area. Close the shape by clicking your first point. Draw multiple areas to combine them — useful for separated lawn sections or to exclude obstructions.
       </div>
 
       <div id="area-badge">
@@ -679,7 +679,7 @@ const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
 const JOBBER_TOKEN = 'YOUR_JOBBER_TOKEN_HERE';
 
 // ── STATE ──
-let map = null, autocomplete = null, drawingManager = null, activePolygon = null;
+let map = null, autocomplete = null, drawingManager = null, activePolygons = [];
 
 // Callback must exist on window BEFORE the script tag is injected
 window.onMapsReady = function() {
@@ -776,12 +776,11 @@ function initDrawing() {
   });
   drawingManager.setMap(map);
   google.maps.event.addListener(drawingManager, 'polygoncomplete', function(poly) {
-    if (activePolygon) activePolygon.setMap(null);
-    activePolygon = poly;
-    drawingManager.setDrawingMode(null);
-    applyArea(poly, 'Drawn on satellite map');
-    const path = poly.getPath();
-    ['set_at','insert_at'].forEach(ev => google.maps.event.addListener(path, ev, function() { applyArea(poly, 'Drawn on satellite map'); }));
+    activePolygons.push(poly);
+    // Stay in drawing mode so more areas can be added immediately
+    drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    recalcAllAreas();
+    ['set_at','insert_at'].forEach(ev => google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas));
   });
 }
 
@@ -795,20 +794,45 @@ function osmPolyArea(geomNodes) {
 
 function renderOsmPolygon(geomNodes) {
   if (!map) return;
-  if (activePolygon) { activePolygon.setMap(null); activePolygon = null; }
+  activePolygons.forEach(p => p.setMap(null));
+  activePolygons = [];
   const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
-  activePolygon = new google.maps.Polygon({
+  const poly = new google.maps.Polygon({
     paths: path,
     fillColor: '#1D9E75', fillOpacity: 0.28,
     strokeColor: '#0a4a37', strokeWeight: 2.5,
     editable: true, map: map,
   });
-  const polyPath = activePolygon.getPath();
+  activePolygons.push(poly);
   ['set_at', 'insert_at'].forEach(ev =>
-    google.maps.event.addListener(polyPath, ev, function() {
-      applyArea(activePolygon, 'Edited from auto-detected boundary');
-    })
+    google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
   );
+}
+
+// Sum all drawn polygons and update the sqft slider
+function recalcAllAreas() {
+  if (!activePolygons.length) return;
+  let totalM2 = 0;
+  activePolygons.forEach(p => { totalM2 += google.maps.geometry.spherical.computeArea(p.getPath()); });
+  const sqft = Math.round(totalM2 * 10.7639);
+  const src = activePolygons.length > 1
+    ? activePolygons.length + ' areas combined'
+    : 'Drawn on satellite map';
+  setMeasured(sqft, src);
+}
+
+// Fallback: draw a square of estimated size centered on the pin
+function renderFallbackPolygon(lat, lng, sqftEstimate) {
+  const R = 6371000;
+  const side = Math.sqrt(Math.max(50, sqftEstimate / 10.7639)) / 2;
+  const dlat = (side / R) * (180 / Math.PI);
+  const dlng = dlat / Math.cos(lat * Math.PI / 180);
+  renderOsmPolygon([
+    { lat: lat - dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng + dlng },
+    { lat: lat - dlat, lon: lng + dlng },
+  ]);
 }
 
 function showAutoStatus(msg, state, icon) {
@@ -929,12 +953,19 @@ out geom tags;`;
       setMeasured(Math.round(result),
         state === 'success' ? 'Auto — OpenStreetMap grass data'
                             : 'Estimated from map boundary data');
-      // Render the detected polygon on the map so Marcus can see and edit it
+      // Render on the map: use OSM polygon if available, else draw a square
       const geomToRender = grassSqft >= 300 ? bestGrassGeom : bestLotGeom;
-      if (geomToRender) renderOsmPolygon(geomToRender);
+      if (geomToRender) {
+        renderOsmPolygon(geomToRender);
+      } else {
+        renderFallbackPolygon(lat, lng, Math.round(result));
+        showAutoStatus(confidence + ' — adjust the outline to match', state);
+      }
     } else {
-      showAutoStatus('No usable map data found — draw the yard boundary below', 'warn', '⚠');
-      document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
+      // No OSM data at all — render a default 1 500 sqft square as a starting point
+      showAutoStatus('No map data found — adjust the outline below to match the yard', 'warn', '⚠');
+      document.getElementById('sqft-hint').textContent = 'No map data — drag the corners of the outlined area to match the yard.';
+      renderFallbackPolygon(lat, lng, 1500);
     }
   } catch (err) {
     showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
@@ -968,7 +999,8 @@ function setMeasured(sqft, source) {
 
 function resetMap() {
   if (drawingManager) drawingManager.setMap(null);
-  if (activePolygon) { activePolygon.setMap(null); activePolygon = null; }
+  activePolygons.forEach(p => p.setMap(null));
+  activePolygons = [];
   document.getElementById('area-badge').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
