@@ -198,6 +198,26 @@
     font-size: 11px; color: var(--muted); background: none; border: none;
     cursor: pointer; text-decoration: underline; font-family: 'DM Sans', sans-serif;
   }
+  /* Client info fields */
+  .client-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .client-grid .field { margin-bottom: 0; }
+  .client-input {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    color: var(--text); background: var(--white); outline: none; transition: border-color 0.2s;
+  }
+  .client-input:focus { border-color: var(--green); }
+  .client-input::placeholder { color: #bbb; }
+  /* Jobber button */
+  .btn-jobber {
+    width: 100%; margin-top: 16px; padding: 14px;
+    background: var(--green); color: var(--white); border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; transition: background 0.15s, opacity 0.15s;
+  }
+  .btn-jobber:hover:not(:disabled) { background: var(--green-dark); }
+  .btn-jobber:disabled { opacity: 0.6; cursor: default; }
+  #jobber-status { margin-top: 10px; font-size: 13px; text-align: center; min-height: 18px; }
   .auto-badge {
     display: inline-block; background: var(--green); color: var(--white);
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
@@ -550,6 +570,30 @@
         </div>
       </div>
 
+      <!-- CLIENT INFO & JOBBER -->
+      <div class="divider"></div>
+      <div class="section-title">Client Info</div>
+      <div class="client-grid">
+        <div class="field">
+          <label>First Name</label>
+          <input type="text" id="client-first" class="client-input" placeholder="First">
+        </div>
+        <div class="field">
+          <label>Last Name</label>
+          <input type="text" id="client-last" class="client-input" placeholder="Last">
+        </div>
+      </div>
+      <div class="field">
+        <label>Phone</label>
+        <input type="text" id="client-phone" class="client-input" placeholder="780-xxx-xxxx">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="client-email" class="client-input" placeholder="client@email.com">
+      </div>
+      <button class="btn-jobber" onclick="sendToJobber()">📋 Create Quote in Jobber</button>
+      <div id="jobber-status"></div>
+
       <p class="footer-note">
         Weather dependent · First-come, first-serve booking<br>
         Payment: cash, cheque, e-transfer, debit &amp; credit<br>
@@ -632,6 +676,7 @@
 ───────────────────────────────────────────────────── -->
 <script>
 const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
+const JOBBER_TOKEN = 'YOUR_JOBBER_TOKEN_HERE';
 
 // ── STATE ──
 let map = null, autocomplete = null, drawingManager = null, activePolygon = null;
@@ -1058,65 +1103,155 @@ function calc(){
 }
 calc();
 
-// ── APPROVE / REJECT MODAL ──
-function openApprove() {
-  // Pre-fill address from the map search if available
-  const mapAddr = document.getElementById('map-addr-label').textContent;
-  if (mapAddr) document.getElementById('m-address').value = mapAddr;
-  // Sync quote total
-  document.getElementById('modal-total-display').textContent = document.getElementById('r-total').textContent;
-  document.getElementById('modal-form-view').style.display = 'block';
-  document.getElementById('modal-sent-view').style.display = 'none';
-  document.getElementById('approve-modal').classList.add('open');
-}
-function closeApprove() {
-  document.getElementById('approve-modal').classList.remove('open');
-}
-function submitApprove() {
-  const name    = document.getElementById('m-name').value.trim();
-  const address = document.getElementById('m-address').value.trim();
-  const phone   = document.getElementById('m-phone').value.trim();
-  const email   = document.getElementById('m-email').value.trim();
-  if (!name || !phone) {
-    alert('Please enter at least the client name and phone number.');
-    return;
-  }
-  // Store quote data — ready for Jobber API when integration is built
-  const quoteData = {
-    client: { name, address, phone, email },
-    total: document.getElementById('r-total').textContent,
-    sqft: document.getElementById('sqft').value,
-    timestamp: new Date().toISOString(),
-  };
-  console.log('Quote approved — ready for Jobber:', quoteData);
-  // Show confirmation
-  document.getElementById('modal-form-view').style.display = 'none';
-  document.getElementById('modal-sent-view').style.display = 'block';
+// ── JOBBER INTEGRATION ──
+async function jobberGQL(query, variables) {
+  const r = await fetch('https://api.getjobber.com/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + JOBBER_TOKEN,
+      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28'
+    },
+    body: JSON.stringify({ query, variables })
+  });
+  if (!r.ok) throw new Error('Jobber API error: ' + r.status);
+  return r.json();
 }
 
-function openReject() {
-  document.getElementById('reject-modal').classList.add('open');
+async function sendToJobber() {
+  const firstName = document.getElementById('client-first').value.trim();
+  const lastName  = document.getElementById('client-last').value.trim();
+  const phone     = document.getElementById('client-phone').value.trim();
+  const email     = document.getElementById('client-email').value.trim();
+  const address   = document.getElementById('address-input').value.trim();
+
+  if (!firstName || !lastName) {
+    alert('Enter the client first and last name before sending to Jobber.');
+    return;
+  }
+
+  const btn = document.querySelector('.btn-jobber');
+  const statusEl = document.getElementById('jobber-status');
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending to Jobber…';
+  statusEl.textContent = '';
+  statusEl.style.color = '';
+
+  try {
+    // 1. Create client
+    const clientRes = await jobberGQL(`
+      mutation ClientCreate($input: ClientCreateInput!) {
+        clientCreate(input: $input) {
+          client { id }
+          userErrors { message path }
+        }
+      }
+    `, {
+      input: {
+        firstName,
+        lastName,
+        ...(phone   ? { phones: [{ number: phone, primary: true }] }     : {}),
+        ...(email   ? { emails: [{ address: email, primary: true }] }    : {}),
+        ...(address ? { billingAddress: { street: address } }            : {})
+      }
+    });
+
+    const clientErrors = clientRes.data?.clientCreate?.userErrors;
+    if (clientErrors?.length) throw new Error(clientErrors[0].message);
+    const clientId = clientRes.data?.clientCreate?.client?.id;
+    if (!clientId) throw new Error('No client ID returned from Jobber.');
+
+    // 2. Create quote
+    const quoteRes = await jobberGQL(`
+      mutation QuoteCreate($input: QuoteCreateInput!) {
+        quoteCreate(input: $input) {
+          quote { id quoteNumber webUri }
+          userErrors { message path }
+        }
+      }
+    `, {
+      input: {
+        clientId,
+        lineItems: buildJobberLineItems()
+      }
+    });
+
+    const quoteErrors = quoteRes.data?.quoteCreate?.userErrors;
+    if (quoteErrors?.length) throw new Error(quoteErrors[0].message);
+    const quote = quoteRes.data?.quoteCreate?.quote;
+    if (!quote) throw new Error('No quote returned from Jobber.');
+
+    btn.textContent = '✓ Quote Created!';
+    btn.style.background = 'var(--green-dark)';
+    statusEl.innerHTML = `<a href="${quote.webUri}" target="_blank" style="color:var(--green);font-weight:600">Open Quote #${quote.quoteNumber} in Jobber →</a>`;
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '📋 Create Quote in Jobber';
+    statusEl.textContent = '⚠ ' + (e.message || 'Unknown error — check the Jobber token.');
+    statusEl.style.color = '#c0392b';
+  }
 }
-function closeReject() {
-  document.getElementById('reject-modal').classList.remove('open');
-}
-function discardQuote() {
-  // Reset all sliders to default
-  ['sqft','disposal','bags','slope','overgrown','aeration','overseeding','rockbed',
-   'fruit','pine','weed','debris','fert','obstructions'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = el.id === 'sqft' ? 1500 : el.id === 'bags' ? 2 : 0;
-  });
-  activeDiscount = null;
-  ecoOn = false;
-  document.getElementById('eco-track').style.background = '#ddd';
-  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
-  document.getElementById('eco-label').style.color = '#bbb';
-  document.querySelectorAll('.discount-cell').forEach(c => c.classList.remove('active'));
-  resetMap();
-  calc();
-  closeReject();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+function buildJobberLineItems() {
+  const sqft        = +document.getElementById('sqft').value;
+  const disposal    = +document.getElementById('disposal').value;
+  const bags        = +document.getElementById('bags').value;
+  const slope       = +document.getElementById('slope').value;
+  const overgrown   = +document.getElementById('overgrown').value;
+  const aeration    = +document.getElementById('aeration').value;
+  const overseeding = +document.getElementById('overseeding').value;
+  const rockbed     = +document.getElementById('rockbed').value;
+  const fruit       = +document.getElementById('fruit').value;
+  const pine        = +document.getElementById('pine').value;
+  const weed        = +document.getElementById('weed').value;
+  const debris      = +document.getElementById('debris').value;
+  const fert        = +document.getElementById('fert').value;
+  const obstructions= +document.getElementById('obstructions').value;
+
+  const tier = tiers.find(t => sqft <= t.max) || tiers[tiers.length-1];
+  const items = [];
+
+  items.push({ name: 'Spring Cleanup — ' + tier.label, unitPrice: tier.base, quantity: 1, description: sqft.toLocaleString() + ' sq ft' });
+
+  if (disposal === 0 && bags > 0) items.push({ name: 'Clipping Bag Disposal', unitPrice: 3.50, quantity: bags });
+  if (slope > 0)       items.push({ name: 'Slope Surcharge (' + slopeLabels[slope] + ')', unitPrice: slopeFees[slope], quantity: 1 });
+  if (overgrown > 0)   items.push({ name: 'Overgrown Lawn Fee', unitPrice: ogFees[overgrown], quantity: 1 });
+  if (obstructions > 0) items.push({ name: 'Obstructions (' + obsLabels[obstructions] + ')', unitPrice: Math.round(tier.base * obsPct[obstructions]), quantity: 1 });
+  if (aeration > 0)    items.push({ name: 'Core Aeration', unitPrice: tier.aer, quantity: 1 });
+  if (fruit > 0)       items.push({ name: 'Fallen Fruit Cleanup', unitPrice: 70, quantity: 1 });
+  if (pine > 0)        items.push({ name: 'Pine Cones & Needles', unitPrice: 70, quantity: 1 });
+  if (debris > 0)      items.push({ name: 'Pet Waste & Debris', unitPrice: 70, quantity: 1 });
+  if (rockbed > 0)     items.push({ name: 'Rockbed Cleanup (' + rockLabels[rockbed] + ')', unitPrice: Math.round(tier.rock * rockPct[rockbed]), quantity: 1 });
+
+  if (overseeding > 0) {
+    const scPctArr = [0,0.25,0.50,0.75,1.0,1.50], scLbl = ['','25%','50%','75%','Full (100%)','Heavy (150%)'];
+    const tsl = +(sqft/1000*2).toFixed(1), slh = +(Math.max(1,sqft/3000)).toFixed(1);
+    const l = +(tsl * scPctArr[overseeding]).toFixed(1);
+    const t = Math.round(l*12) + Math.round(slh*75) + 15;
+    items.push({ name: 'Overseeding (' + scLbl[overseeding] + ' · ' + l + ' lbs)', unitPrice: t, quantity: 1 });
+  }
+
+  if (weed > 0) {
+    const wbh = sqft<=1500?1:sqft<=2500?1.5:sqft<=4500?2:sqft<=6500?2.5:sqft<=8000?3:3.5;
+    const wmArr = [0,0.5,0.75,1.0,1.25,1.5], wlArr = ['','Light','Moderate','Heavy','Extensive','Maximum'];
+    const wh = +(wbh * wmArr[weed]).toFixed(1);
+    items.push({ name: 'Weed Removal (' + wlArr[weed] + ' · ' + wh + 'hr)', unitPrice: Math.round(wh*75), quantity: 1 });
+  }
+
+  if (fert > 0) {
+    const fb = 73 + Math.round((sqft-500)/1000)*10;
+    const price = ecoOn ? Math.round(fb*1.20) : fb;
+    items.push({ name: ecoOn ? 'Fertilization (eco-friendly)' : 'Fertilization (standard)', unitPrice: price, quantity: 1 });
+  }
+
+  if (activeDiscount) {
+    const subtotal = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const amt = Math.round(subtotal * discounts[activeDiscount].pct / 100);
+    items.push({ name: discounts[activeDiscount].label, unitPrice: -amt, quantity: 1 });
+  }
+
+  return items;
 }
 </script>
 </body>
