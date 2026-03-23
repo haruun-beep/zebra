@@ -793,6 +793,24 @@ function osmPolyArea(geomNodes) {
   return google.maps.geometry.spherical.computeArea(path); // returns m²
 }
 
+function renderOsmPolygon(geomNodes) {
+  if (!map) return;
+  if (activePolygon) { activePolygon.setMap(null); activePolygon = null; }
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  activePolygon = new google.maps.Polygon({
+    paths: path,
+    fillColor: '#1D9E75', fillOpacity: 0.28,
+    strokeColor: '#0a4a37', strokeWeight: 2.5,
+    editable: true, map: map,
+  });
+  const polyPath = activePolygon.getPath();
+  ['set_at', 'insert_at'].forEach(ev =>
+    google.maps.event.addListener(polyPath, ev, function() {
+      applyArea(activePolygon, 'Edited from auto-detected boundary');
+    })
+  );
+}
+
 function showAutoStatus(msg, state, icon) {
   const el   = document.getElementById('auto-detect-status');
   const msgEl = document.getElementById('auto-detect-msg');
@@ -851,6 +869,8 @@ out geom tags;`;
     const data = await fetchOverpass(query);
 
     let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
+    let bestGrassGeom = null, bestGrassArea = 0;
+    let bestLotGeom = null, bestLotArea = 0;
 
     for (const el of (data.elements || [])) {
       const t = el.tags || {};
@@ -869,11 +889,15 @@ out geom tags;`;
 
       if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
         grassSqft += sqft;
+        if (sqft > bestGrassArea) { bestGrassArea = sqft; bestGrassGeom = geom; }
       } else if (t.building) {
         buildingSqft += sqft;
       } else if (t.boundary === 'cadastral' || t.landuse === 'plot') {
         // Individual parcel boundary — accept any plausible residential lot size (incl. townhouses)
-        if (sqft >= 600 && sqft <= 22000) lotSqft += sqft;
+        if (sqft >= 600 && sqft <= 22000) {
+          lotSqft += sqft;
+          if (sqft > bestLotArea) { bestLotArea = sqft; bestLotGeom = geom; }
+        }
       }
     }
 
@@ -905,6 +929,9 @@ out geom tags;`;
       setMeasured(Math.round(result),
         state === 'success' ? 'Auto — OpenStreetMap grass data'
                             : 'Estimated from map boundary data');
+      // Render the detected polygon on the map so Marcus can see and edit it
+      const geomToRender = grassSqft >= 300 ? bestGrassGeom : bestLotGeom;
+      if (geomToRender) renderOsmPolygon(geomToRender);
     } else {
       showAutoStatus('No usable map data found — draw the yard boundary below', 'warn', '⚠');
       document.getElementById('sqft-hint').textContent = 'Map data unavailable for this address — use the drawing tool to trace the lawn.';
