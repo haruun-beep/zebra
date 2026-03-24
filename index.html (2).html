@@ -1720,52 +1720,35 @@ function buildJobberLineItems() {
 }
 
 function copyQuoteText() {
-  const lines = [];
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('en-CA', { year:'numeric', month:'long', day:'numeric' });
-
-  lines.push('ZEBRA LANDSCAPING — SPRING CLEANUP QUOTE');
-  lines.push(dateStr);
-  lines.push('');
-
-  const estimator = document.getElementById('estimator-name').value.trim();
-  if (estimator) lines.push('Estimator: ' + estimator);
-
-  const firstName = document.getElementById('client-first').value.trim();
-  const lastName  = document.getElementById('client-last').value.trim();
-  const phone     = document.getElementById('client-phone').value.trim();
-  const email     = document.getElementById('client-email').value.trim();
-  const address   = (document.getElementById('address-input') || {}).value || '';
-
-  if (firstName || lastName) lines.push('Client: ' + [firstName, lastName].filter(Boolean).join(' '));
-  if (phone)   lines.push('Phone: ' + phone);
-  if (email)   lines.push('Email: ' + email);
-  if (address.trim()) lines.push('Address: ' + address.trim());
-
-  const sqft = +document.getElementById('sqft').value;
-  lines.push('Property: ' + sqft.toLocaleString() + ' sq ft');
-  lines.push('');
-  lines.push('--- LINE ITEMS ---');
-
+  const sqft  = +document.getElementById('sqft').value;
   const items = buildJobberLineItems();
-  let maxNameLen = 0;
-  items.forEach(i => { if (i.name.length > maxNameLen) maxNameLen = i.name.length; });
 
-  items.forEach(item => {
-    const total = item.unitPrice * item.quantity;
-    const sign  = total < 0 ? '-$' : '$';
-    const amt   = Math.abs(total).toFixed(2);
-    const pad   = ' '.repeat(Math.max(1, maxNameLen - item.name.length + 2));
-    lines.push(item.name + pad + sign + amt);
-  });
+  const baseItem = items[0];
+  const addons   = items.slice(1);
 
-  lines.push('');
+  let text = 'Spring cleanup for a ' + baseItem.name.replace('Spring Cleanup — ', '') +
+    ' property (' + sqft.toLocaleString() + ' sq ft). ' +
+    'Includes power raking, hand raking, first mowing & trimming, power edging, ' +
+    'leaf & debris cleanup, rockbed blowout, and clipping/debris bagging.';
+
+  const positiveAddons = addons.filter(i => i.unitPrice >= 0);
+  const discount       = addons.find(i => i.unitPrice < 0);
+
+  if (positiveAddons.length) {
+    const parts = positiveAddons.map(i => {
+      const total = i.unitPrice * i.quantity;
+      return i.name + ' ($' + total.toFixed(2).replace(/\.00$/, '') + ')';
+    });
+    text += ' Additional services: ' + parts.join(', ') + '.';
+  }
+
+  if (discount) {
+    const amt = Math.abs(discount.unitPrice * discount.quantity);
+    text += ' ' + discount.name + ' applied (-$' + amt.toFixed(2).replace(/\.00$/, '') + ').';
+  }
+
   const totalEl = document.getElementById('r-total');
-  lines.push('ESTIMATED TOTAL: ' + (totalEl ? totalEl.textContent : '') + ' (excl. GST)');
-  lines.push('');
-  lines.push('Note: Final quote subject to on-site review by Zebra team.');
-
-  const text = lines.join('\n');
+  text += '\n\nEstimated Total: ' + (totalEl ? totalEl.textContent : '') + ' (excl. GST)';
 
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.getElementById('copy-quote-btn');
