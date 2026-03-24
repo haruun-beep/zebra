@@ -238,10 +238,6 @@
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
     text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; vertical-align: middle;
   }
-  #auto-detect-status.loading { background: #f0f7ff; color: #2d6abf; border: 1px solid #c5dcf7; }
-  #auto-detect-status.success { background: var(--green-light); color: var(--green-deep); border: 1px solid var(--green-mid); }
-  #auto-detect-status.estimate { background: #fffbf0; color: #8a6000; border: 1px solid #f0dc9a; }
-  #auto-detect-status.warn    { background: #fff8f0; color: #b05000; border: 1px solid #f5d0a0; }
 
   .estimator-section { margin-bottom: 0; }
   .estimator-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
@@ -415,11 +411,6 @@
         <strong>Draw mode on:</strong> Click points on the satellite image to trace an area. Close the shape by clicking your first point. Draw multiple areas to combine them — useful for separated lawn sections or to exclude obstructions.
       </div>
 
-      <div id="auto-detect-status" style="display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;margin-top:8px">
-        <span id="auto-detect-icon" style="font-size:15px"></span>
-        <span id="auto-detect-msg"></span>
-      </div>
-
       <div id="area-badge">
         <div class="badge-left">
           <span class="badge-check">✓</span>
@@ -465,7 +456,7 @@
         </label>
         <input type="range" id="sqft" min="500" max="10000" value="1500" step="100" oninput="onSqftManual()">
         <div class="sub-labels"><span>500</span><span>2,500</span><span>5,000</span><span>7,500</span><span>10,000 sq ft</span></div>
-        <div class="field-desc" id="sqft-hint">Enter the property address above to auto-measure, or drag to set manually.</div>
+        <div class="field-desc" id="sqft-hint">Draw the yard on the satellite map above, or drag to set manually.</div>
       </div>
 
       <div class="divider"></div>
@@ -964,8 +955,6 @@ function showMap(latLng, address) {
     map.setCenter(latLng); map.setZoom(19);
   }
   wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  // Auto-detect lawn area whenever a new address is loaded
-  autoDetectLawn(latLng);
 }
 
 function confirmSite() {
@@ -1000,197 +989,6 @@ function initDrawing() {
   });
 }
 
-// ── AUTO-DETECT LAWN AREA via OpenStreetMap Overpass API ──
-
-function osmPolyArea(geomNodes) {
-  // geomNodes is an array of {lat, lon} from Overpass out geom
-  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
-  return google.maps.geometry.spherical.computeArea(path); // returns m²
-}
-
-function renderOsmPolygon(geomNodes) {
-  if (!map) return;
-  activePolygons.forEach(p => p.setMap(null));
-  activePolygons = [];
-  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
-  const poly = new google.maps.Polygon({
-    paths: path,
-    fillColor: '#1D9E75', fillOpacity: 0.28,
-    strokeColor: '#0a4a37', strokeWeight: 2.5,
-    editable: true, map: map,
-  });
-  activePolygons.push(poly);
-  ['set_at', 'insert_at'].forEach(ev =>
-    google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
-  );
-  recalcAllAreas();
-}
-
-// Sum all drawn polygons and update the sqft slider
-function recalcAllAreas() {
-  if (!activePolygons.length) return;
-  let totalM2 = 0;
-  activePolygons.forEach(p => { totalM2 += google.maps.geometry.spherical.computeArea(p.getPath()); });
-  const sqft = Math.round(totalM2 * 10.7639);
-  const src = activePolygons.length > 1
-    ? activePolygons.length + ' areas combined'
-    : 'Drawn on satellite map';
-  setMeasured(sqft, src);
-}
-
-// Fallback: draw a square of estimated size centered on the pin
-function renderFallbackPolygon(lat, lng, sqftEstimate) {
-  const R = 6371000;
-  const side = Math.sqrt(Math.max(50, sqftEstimate / 10.7639)) / 2;
-  const dlat = (side / R) * (180 / Math.PI);
-  const dlng = dlat / Math.cos(lat * Math.PI / 180);
-  renderOsmPolygon([
-    { lat: lat - dlat, lon: lng - dlng },
-    { lat: lat + dlat, lon: lng - dlng },
-    { lat: lat + dlat, lon: lng + dlng },
-    { lat: lat - dlat, lon: lng + dlng },
-  ]);
-}
-
-function showAutoStatus(msg, state, icon) {
-  const el   = document.getElementById('auto-detect-status');
-  const msgEl = document.getElementById('auto-detect-msg');
-  const iconEl = document.getElementById('auto-detect-icon');
-  el.style.display = 'flex';
-  el.className = state || 'loading';
-  msgEl.textContent = msg;
-  iconEl.textContent = icon || (state === 'success' ? '✓' : state === 'estimate' ? '~' : state === 'warn' ? '⚠' : '⏳');
-}
-
-async function autoDetectLawn(latLng) {
-  const lat = latLng.lat();
-  const lng = latLng.lng();
-  showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
-  document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
-
-  // Grass/lawn: 30m radius to stay within the subject lot.
-  // Building + parcel: 40m radius to account for geocoded pin landing at the kerb
-  // rather than the lot centre. Both way and relation types queried since cadastral
-  // parcels are often stored as relations in OSM.
-  const query = `[out:json][timeout:25];
-(
-  way["natural"="grass"](around:30,${lat},${lng});
-  way["landuse"="grass"](around:30,${lat},${lng});
-  way["leisure"="garden"](around:30,${lat},${lng});
-  way["landuse"="lawn"](around:30,${lat},${lng});
-  way["building"](around:40,${lat},${lng});
-  relation["building"](around:40,${lat},${lng});
-  way["boundary"="cadastral"](around:40,${lat},${lng});
-  relation["boundary"="cadastral"](around:40,${lat},${lng});
-  way["landuse"="plot"](around:40,${lat},${lng});
-  relation["landuse"="plot"](around:40,${lat},${lng});
-);
-out geom tags;`;
-
-  const OVERPASS_ENDPOINTS = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-  ];
-
-  async function fetchOverpass(query) {
-    for (const endpoint of OVERPASS_ENDPOINTS) {
-      try {
-        const resp = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'data=' + encodeURIComponent(query),
-        });
-        if (resp.ok) return resp.json();
-      } catch (_) { /* try next endpoint */ }
-    }
-    throw new Error('All Overpass endpoints failed');
-  }
-
-  try {
-    const data = await fetchOverpass(query);
-
-    let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
-    let bestGrassGeom = null, bestGrassArea = 0;
-    let bestLotGeom = null, bestLotArea = 0;
-
-    for (const el of (data.elements || [])) {
-      const t = el.tags || {};
-      let geom = null;
-
-      if (el.type === 'way' && el.geometry && el.geometry.length >= 3) {
-        geom = el.geometry;
-      } else if (el.type === 'relation' && Array.isArray(el.members)) {
-        // Use the outer ring of the relation for area calculation
-        const outer = el.members.find(m => m.role === 'outer' && m.geometry && m.geometry.length >= 3);
-        if (outer) geom = outer.geometry;
-      }
-
-      if (!geom) continue;
-      const sqft = osmPolyArea(geom) * 10.7639;
-
-      if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
-        grassSqft += sqft;
-        if (sqft > bestGrassArea) { bestGrassArea = sqft; bestGrassGeom = geom; }
-      } else if (t.building) {
-        buildingSqft += sqft;
-      } else if (t.boundary === 'cadastral' || t.landuse === 'plot') {
-        // Individual parcel boundary — accept any plausible residential lot size (incl. townhouses)
-        if (sqft >= 600 && sqft <= 22000) {
-          lotSqft += sqft;
-          if (sqft > bestLotArea) { bestLotArea = sqft; bestLotGeom = geom; }
-        }
-      }
-    }
-
-    let result = 0, confidence = '', state = 'success';
-
-    if (grassSqft >= 300) {
-      // Direct grass/lawn polygons found — most accurate
-      result = grassSqft;
-      confidence = 'Measured from grass area in OpenStreetMap';
-      state = 'success';
-    } else if (lotSqft >= 600) {
-      // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
-      result = Math.max(300, (lotSqft - buildingSqft) * 0.78);
-      confidence = 'Estimated from lot boundary — draw to refine';
-      state = 'estimate';
-    } else if (buildingSqft >= 300) {
-      // Only have building; use size-aware lot-to-building ratio to estimate lawn area
-      let ratio;
-      if (buildingSqft <= 800) ratio = 2.5;       // small house — likely smaller dense lot
-      else if (buildingSqft <= 1500) ratio = 2.0;  // typical detached
-      else ratio = 1.6;                             // large house — tighter lot ratio
-      result = buildingSqft * ratio;
-      confidence = 'Rough estimate from building footprint — draw to refine';
-      state = 'estimate';
-    }
-
-    if (result >= 300 && result <= 12000) {
-      showAutoStatus(confidence, state);
-      setMeasured(Math.round(result),
-        state === 'success' ? 'Auto — OpenStreetMap grass data'
-                            : 'Estimated from map boundary data');
-      // Render on the map: use OSM polygon if available, else draw a square
-      const geomToRender = grassSqft >= 300 ? bestGrassGeom : bestLotGeom;
-      if (geomToRender) {
-        renderOsmPolygon(geomToRender);
-      } else {
-        renderFallbackPolygon(lat, lng, Math.round(result));
-        showAutoStatus(confidence + ' — adjust the outline to match', state);
-      }
-    } else {
-      // No OSM data at all — render a default 1 500 sqft square as a starting point
-      showAutoStatus('No map data found — adjust the outline below to match the yard', 'warn', '⚠');
-      document.getElementById('sqft-hint').textContent = 'No map data — drag the corners of the outlined area to match the yard.';
-      setMeasured(1500, 'Estimated starting point — draw to refine');
-      renderFallbackPolygon(lat, lng, 1500);
-    }
-  } catch (err) {
-    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
-    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
-  }
-}
-
 function applyArea(poly, source) {
   const m2   = google.maps.geometry.spherical.computeArea(poly.getPath());
   // Apply 0.95 calibration factor — polygon tracing tends to over-capture edges by ~5%
@@ -1206,8 +1004,7 @@ function setMeasured(sqft, source) {
   const clamped = Math.max(500, Math.min(10000, calibrated));
   const rounded = Math.round(clamped / 100) * 100;
   document.getElementById('sqft').value = rounded;
-  document.getElementById('auto-badge').style.display = 'inline-block';
-  document.getElementById('sqft-hint').textContent = 'Auto-measured — drag to adjust if needed.';
+  document.getElementById('auto-badge').style.display = 'none';
   document.getElementById('badge-sqft').textContent = rounded.toLocaleString();
   document.getElementById('badge-src').textContent = source;
   const badge = document.getElementById('area-badge');
@@ -1220,19 +1017,18 @@ function resetMap() {
   activePolygons.forEach(p => p.setMap(null));
   activePolygons = [];
   document.getElementById('area-badge').style.display = 'none';
-  document.getElementById('auto-detect-status').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
   document.getElementById('map-header').style.display = 'none';
   document.querySelector('.btn-confirm-site').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
-  document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
+  document.getElementById('sqft-hint').textContent = 'Draw the yard on the satellite map above, or drag to set manually.';
   drawingManager = null; map = null;
 }
 
 function onSqftManual() {
   document.getElementById('auto-badge').style.display = 'none';
-  document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
+  document.getElementById('sqft-hint').textContent = 'Draw the yard on the satellite map above, or drag to set manually.';
   setDefaultBags(); calc();
 }
 
