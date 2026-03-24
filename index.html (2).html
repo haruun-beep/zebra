@@ -223,6 +223,10 @@
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
     text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; vertical-align: middle;
   }
+  #auto-detect-status.loading { background: #f0f7ff; color: #2d6abf; border: 1px solid #c5dcf7; }
+  #auto-detect-status.success { background: var(--green-light); color: var(--green-deep); border: 1px solid var(--green-mid); }
+  #auto-detect-status.estimate { background: #fffbf0; color: #8a6000; border: 1px solid #f0dc9a; }
+  #auto-detect-status.warn    { background: #fff8f0; color: #b05000; border: 1px solid #f5d0a0; }
 
   .action-bar { display: flex; gap: 12px; margin-top: 22px; }
   .btn-approve {
@@ -373,6 +377,11 @@
 
       <div id="draw-tip">
         <strong>Draw mode on:</strong> Click points on the satellite image to trace an area. Close the shape by clicking your first point. Draw multiple areas to combine them — useful for separated lawn sections or to exclude obstructions.
+      </div>
+
+      <div id="auto-detect-status" style="display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;margin-top:8px">
+        <span id="auto-detect-icon" style="font-size:15px"></span>
+        <span id="auto-detect-msg"></span>
       </div>
 
       <div id="area-badge">
@@ -750,6 +759,8 @@ function showMap(latLng, address) {
     map.setCenter(latLng); map.setZoom(19);
   }
   wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Auto-detect lawn area whenever a new address is loaded
+  autoDetectLawn(latLng);
 }
 
 function confirmSite() {
@@ -1004,6 +1015,7 @@ function resetMap() {
   activePolygons.forEach(p => p.setMap(null));
   activePolygons = [];
   document.getElementById('area-badge').style.display = 'none';
+  document.getElementById('auto-detect-status').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
   document.getElementById('map-header').style.display = 'none';
