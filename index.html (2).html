@@ -223,6 +223,23 @@
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
     text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; vertical-align: middle;
   }
+  #auto-detect-status.loading { background: #f0f7ff; color: #2d6abf; border: 1px solid #c5dcf7; }
+  #auto-detect-status.success { background: var(--green-light); color: var(--green-deep); border: 1px solid var(--green-mid); }
+  #auto-detect-status.estimate { background: #fffbf0; color: #8a6000; border: 1px solid #f0dc9a; }
+  #auto-detect-status.warn    { background: #fff8f0; color: #b05000; border: 1px solid #f5d0a0; }
+
+  .estimator-section { margin-bottom: 0; }
+  .estimator-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .estimator-row .field { flex: 1; min-width: 150px; }
+  .deal-status-group { display: flex; gap: 8px; margin-top: 0; }
+  .deal-btn {
+    flex: 1; padding: 9px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1.5px solid var(--border); background: var(--white);
+    color: var(--muted); font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+  }
+  .deal-btn.won.active    { background: #e8f8f0; color: #0f6e52; border-color: var(--green); }
+  .deal-btn.lost.active   { background: #fff5f5; color: #c0392b; border-color: #e08080; }
+  .deal-btn.pending.active { background: #fffbf0; color: #8a6000; border-color: #e0c060; }
 
   .action-bar { display: flex; gap: 12px; margin-top: 22px; }
   .btn-approve {
@@ -373,6 +390,11 @@
 
       <div id="draw-tip">
         <strong>Draw mode on:</strong> Click points on the satellite image to trace an area. Close the shape by clicking your first point. Draw multiple areas to combine them — useful for separated lawn sections or to exclude obstructions.
+      </div>
+
+      <div id="auto-detect-status" style="display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;margin-top:8px">
+        <span id="auto-detect-icon" style="font-size:15px"></span>
+        <span id="auto-detect-msg"></span>
       </div>
 
       <div id="area-badge">
@@ -570,6 +592,26 @@
         </div>
       </div>
 
+      <!-- ESTIMATOR -->
+      <div class="divider"></div>
+      <div class="section-title">Estimator</div>
+      <div class="estimator-section">
+        <div class="estimator-row">
+          <div class="field">
+            <label>Estimator name</label>
+            <input type="text" id="estimator-name" class="client-input" placeholder="Your name">
+          </div>
+          <div class="field">
+            <label>Deal Status</label>
+            <div class="deal-status-group">
+              <button class="deal-btn pending active" id="deal-pending" onclick="setDeal('pending')">Pending</button>
+              <button class="deal-btn won"     id="deal-won"     onclick="setDeal('won')">Won</button>
+              <button class="deal-btn lost"    id="deal-lost"    onclick="setDeal('lost')">Lost</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- CLIENT INFO & JOBBER -->
       <div class="divider"></div>
       <div class="section-title">Client Info</div>
@@ -678,6 +720,98 @@
 const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
 const JOBBER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjE5ODkzOTAsImlzcyI6Imh0dHBzOi8vYXBpLmdldGpvYmJlci5jb20iLCJjbGllbnRfaWQiOiIxYzJhMzg1MS04ZGY5LTQ2MjItOTEzYy00NjhjNTExZGI2MTciLCJzY29wZSI6InJlYWRfY2xpZW50cyByZWFkX3F1b3RlcyIsImFwcF9pZCI6IjFjMmEzODUxLThkZjktNDYyMi05MTNjLTQ2OGM1MTFkYjYxNyIsInVzZXJfaWQiOjE5ODkzOTAsImFjY291bnRfaWQiOjEwMzU1MTYsImV4cCI6MTc3NDIyOTkyMH0.LIWXUZTJc0mLf5yLvL13JXbZfOfFLP-OmwxeXf-r';
 
+// ── GOOGLE SHEETS ──
+// Paste your Sheet ID and API key below when ready.
+// Sheet column order (A→N):
+//   A  Timestamp          — auto-filled (ISO 8601)
+//   B  Estimator          — from Estimator Name field
+//   C  Client Name        — first + last
+//   D  Property Address   — from address bar
+//   E  Sq Ft              — measured yard size
+//   F  Yard Tier          — e.g. "Average Yard"
+//   G  Services           — comma-separated add-ons
+//   H  Base Price         — spring cleanup line only
+//   I  Subtotal           — before discount
+//   J  Discount           — label + amount (e.g. "Senior 15% -$33")
+//   K  Final Total        — after discount, excl. GST
+//   L  Deal Status        — Won / Lost / Pending
+//   M  Jobber Quote #     — filled after Jobber create
+//   N  Jobber Quote URL   — filled after Jobber create
+const SHEETS_ID  = '';   // e.g. '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
+const SHEETS_KEY = '';   // Google Cloud API key with Sheets API enabled
+const SHEETS_TAB = 'Quotes'; // Name of the sheet tab
+
+async function logToSheets(jobberQuoteNum, jobberQuoteUrl) {
+  if (!SHEETS_ID || !SHEETS_KEY) return; // not configured yet
+
+  const sqft  = +document.getElementById('sqft').value;
+  const tier  = (tiers.find(t => sqft <= t.max) || tiers[tiers.length - 1]).label;
+  const total = document.getElementById('r-total').textContent;
+  const base  = document.getElementById('r-base').textContent;
+
+  // Collect active add-on labels
+  const serviceRows = [
+    { id: 'r-bag-row',     label: 'Clipping Bag Disposal' },
+    { id: 'r-slope-row',   label: 'Slope Surcharge' },
+    { id: 'r-og-row',      label: 'Overgrown Fee' },
+    { id: 'r-obs-row',     label: 'Obstructions' },
+    { id: 'r-aer-row',     label: 'Core Aeration' },
+    { id: 'r-seed-row',    label: 'Overseeding' },
+    { id: 'r-rock-row',    label: 'Rockbed Cleanup' },
+    { id: 'r-weed-row',    label: 'Weed Removal' },
+    { id: 'r-fruit-row',   label: 'Fallen Fruit' },
+    { id: 'r-pine-row',    label: 'Pine Cones' },
+    { id: 'r-debris-row',  label: 'Pet Waste' },
+    { id: 'r-fert-row',    label: 'Fertilization' },
+  ];
+  const services = serviceRows
+    .filter(s => document.getElementById(s.id) && document.getElementById(s.id).style.display !== 'none')
+    .map(s => s.label)
+    .join(', ');
+
+  const discountEl = document.getElementById('r-discount-row');
+  const discountText = (discountEl && discountEl.style.display !== 'none')
+    ? (document.getElementById('r-discount-label').textContent + ' ' + document.getElementById('r-discount-val').textContent)
+    : '';
+
+  // Compute subtotal before discount
+  const lineItems = buildJobberLineItems();
+  const subtotal = lineItems.filter(i => i.unitPrice > 0).reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+
+  const firstName = document.getElementById('client-first').value.trim();
+  const lastName  = document.getElementById('client-last').value.trim();
+  const clientName = (firstName + ' ' + lastName).trim();
+  const address   = document.getElementById('address-input').value.trim();
+  const estimator = document.getElementById('estimator-name').value.trim();
+
+  const row = [
+    new Date().toISOString(),
+    estimator,
+    clientName,
+    address,
+    sqft,
+    tier,
+    services,
+    base,
+    '$' + Math.round(subtotal),
+    discountText,
+    total,
+    activeDeal.charAt(0).toUpperCase() + activeDeal.slice(1),
+    jobberQuoteNum || '',
+    jobberQuoteUrl || '',
+  ];
+
+  const range = encodeURIComponent(SHEETS_TAB + '!A:N');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${range}:append?valueInputOption=USER_ENTERED&key=${SHEETS_KEY}`;
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] }),
+    });
+  } catch (_) { /* non-critical — Jobber create already succeeded */ }
+}
+
 // ── STATE ──
 let map = null, autocomplete = null, drawingManager = null, activePolygons = [];
 
@@ -750,6 +884,8 @@ function showMap(latLng, address) {
     map.setCenter(latLng); map.setZoom(19);
   }
   wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  // Auto-detect lawn area whenever a new address is loaded
+  autoDetectLawn(latLng);
 }
 
 function confirmSite() {
@@ -852,22 +988,26 @@ async function autoDetectLawn(latLng) {
   showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
   document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
 
-  // Grass/lawn: 30m radius to stay within the subject lot.
-  // Building + parcel: 40m radius to account for geocoded pin landing at the kerb
+  // Grass/lawn: 60m radius — wider than the lot so we catch grass tagged on the parcel edge.
+  // Building + parcel: 60m radius to account for geocoded pin landing at the kerb
   // rather than the lot centre. Both way and relation types queried since cadastral
   // parcels are often stored as relations in OSM.
-  const query = `[out:json][timeout:25];
+  // landuse=residential is included as a last-resort lot boundary for Canadian suburbs
+  // where cadastral data is sparse.
+  const query = `[out:json][timeout:20];
 (
-  way["natural"="grass"](around:30,${lat},${lng});
-  way["landuse"="grass"](around:30,${lat},${lng});
-  way["leisure"="garden"](around:30,${lat},${lng});
-  way["landuse"="lawn"](around:30,${lat},${lng});
-  way["building"](around:40,${lat},${lng});
-  relation["building"](around:40,${lat},${lng});
-  way["boundary"="cadastral"](around:40,${lat},${lng});
-  relation["boundary"="cadastral"](around:40,${lat},${lng});
-  way["landuse"="plot"](around:40,${lat},${lng});
-  relation["landuse"="plot"](around:40,${lat},${lng});
+  way["natural"="grass"](around:60,${lat},${lng});
+  way["landuse"="grass"](around:60,${lat},${lng});
+  way["leisure"="garden"](around:60,${lat},${lng});
+  way["landuse"="lawn"](around:60,${lat},${lng});
+  way["building"](around:60,${lat},${lng});
+  relation["building"](around:60,${lat},${lng});
+  way["boundary"="cadastral"](around:60,${lat},${lng});
+  relation["boundary"="cadastral"](around:60,${lat},${lng});
+  way["landuse"="plot"](around:60,${lat},${lng});
+  relation["landuse"="plot"](around:60,${lat},${lng});
+  way["landuse"="residential"](around:80,${lat},${lng});
+  relation["landuse"="residential"](around:80,${lat},${lng});
 );
 out geom tags;`;
 
@@ -879,11 +1019,15 @@ out geom tags;`;
   async function fetchOverpass(query) {
     for (const endpoint of OVERPASS_ENDPOINTS) {
       try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'data=' + encodeURIComponent(query),
+          signal: controller.signal,
         });
+        clearTimeout(timer);
         if (resp.ok) return resp.json();
       } catch (_) { /* try next endpoint */ }
     }
@@ -970,8 +1114,10 @@ out geom tags;`;
       renderFallbackPolygon(lat, lng, 1500);
     }
   } catch (err) {
-    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
-    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+    showAutoStatus('Could not reach map data — showing estimated outline, drag to adjust', 'warn', '⚠');
+    document.getElementById('sqft-hint').textContent = 'Map data unavailable — drag the corners of the outlined area to match the yard.';
+    setMeasured(1500, 'Estimated starting point — draw to refine');
+    renderFallbackPolygon(lat, lng, 1500);
   }
 }
 
@@ -1164,19 +1310,118 @@ function calc(){
 }
 calc();
 
+// ── DEAL STATUS ──
+let activeDeal = 'pending';
+function setDeal(status) {
+  activeDeal = status;
+  ['pending','won','lost'].forEach(s => {
+    document.getElementById('deal-' + s).classList.toggle('active', s === status);
+  });
+}
+
+// ── MODALS ──
+function openApprove() {
+  const total = document.getElementById('r-total').textContent;
+  document.getElementById('modal-total-display').textContent = total;
+  // Pre-fill from client fields if already entered
+  const fn = document.getElementById('client-first').value.trim();
+  const ln = document.getElementById('client-last').value.trim();
+  if (fn || ln) document.getElementById('m-name').value = (fn + ' ' + ln).trim();
+  const addr = document.getElementById('address-input').value.trim();
+  if (addr) document.getElementById('m-address').value = addr;
+  const ph = document.getElementById('client-phone').value.trim();
+  if (ph) document.getElementById('m-phone').value = ph;
+  const em = document.getElementById('client-email').value.trim();
+  if (em) document.getElementById('m-email').value = em;
+  document.getElementById('modal-form-view').style.display = '';
+  document.getElementById('modal-sent-view').style.display = 'none';
+  document.getElementById('approve-modal').classList.add('open');
+}
+function closeApprove() {
+  document.getElementById('approve-modal').classList.remove('open');
+}
+function submitApprove() {
+  // Copy modal fields back to the main client fields
+  const name = document.getElementById('m-name').value.trim();
+  if (name) {
+    const parts = name.split(' ');
+    document.getElementById('client-first').value = parts[0] || '';
+    document.getElementById('client-last').value = parts.slice(1).join(' ') || '';
+  }
+  const ph = document.getElementById('m-phone').value.trim();
+  if (ph) document.getElementById('client-phone').value = ph;
+  const em = document.getElementById('m-email').value.trim();
+  if (em) document.getElementById('client-email').value = em;
+  document.getElementById('modal-form-view').style.display = 'none';
+  document.getElementById('modal-sent-view').style.display = '';
+}
+function openReject() {
+  document.getElementById('reject-modal').classList.add('open');
+}
+function closeReject() {
+  document.getElementById('reject-modal').classList.remove('open');
+}
+function discardQuote() {
+  closeReject();
+  // Reset all sliders to defaults
+  ['sqft','disposal','bags','slope','overgrown','obstructions','aeration','overseeding','rockbed','fruit','pine','weed','debris','fert'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.min || 0;
+  });
+  activeDiscount = null;
+  ecoOn = false;
+  document.getElementById('eco-track').style.background = '#ddd';
+  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
+  document.getElementById('eco-label').style.color = '#bbb';
+  Object.keys(discounts).forEach(k => document.getElementById('d-cell-' + k).classList.remove('active'));
+  resetMap();
+  calc();
+}
+
 // ── JOBBER INTEGRATION ──
+
+// Decode JWT payload without verification (client-side only — token is already stored in this file)
+function decodeJwtPayload(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+  } catch (_) { return null; }
+}
+
+function jobberTokenStatus() {
+  const p = decodeJwtPayload(JOBBER_TOKEN);
+  if (!p) return { ok: false, reason: 'Token is malformed — paste the full token from Jobber.' };
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (p.exp && p.exp < nowSec) {
+    const d = new Date(p.exp * 1000).toLocaleDateString('en-CA');
+    return { ok: false, reason: `Token expired on ${d} — generate a new one in Jobber → Settings → API → Connected Apps.` };
+  }
+  const scope = (p.scope || '').split(' ');
+  const needsWrite = !scope.includes('write_clients') && !scope.includes('create_clients');
+  const needsQuote = !scope.includes('write_quotes') && !scope.includes('create_quotes');
+  if (needsWrite || needsQuote) {
+    const missing = [needsWrite && 'write_clients', needsQuote && 'write_quotes'].filter(Boolean).join(', ');
+    return { ok: false, reason: `Token is missing required scopes: ${missing}. Re-authorize the app in Jobber → Settings → API → Connected Apps and select write permissions.` };
+  }
+  return { ok: true };
+}
+
 async function jobberGQL(query, variables) {
   const r = await fetch('https://api.getjobber.com/api/graphql', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + JOBBER_TOKEN,
-      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28'
+      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28',
     },
-    body: JSON.stringify({ query, variables })
+    body: JSON.stringify({ query, variables }),
   });
-  if (!r.ok) throw new Error('Jobber API error: ' + r.status);
-  return r.json();
+  if (r.status === 401) throw new Error('Jobber rejected the token (401) — it may be expired or revoked. Generate a new token in Jobber → Settings → API.');
+  if (r.status === 403) throw new Error('Jobber returned 403 Forbidden — the token does not have permission for this action. Check scopes in Jobber → Settings → API → Connected Apps.');
+  if (!r.ok) throw new Error(`Jobber API returned ${r.status} — check your network connection and try again.`);
+  const json = await r.json();
+  if (json.errors && json.errors.length) throw new Error(json.errors.map(e => e.message).join(' | '));
+  return json;
 }
 
 async function sendToJobber() {
@@ -1193,6 +1438,14 @@ async function sendToJobber() {
 
   const btn = document.querySelector('.btn-jobber');
   const statusEl = document.getElementById('jobber-status');
+
+  // Pre-flight: check token before making any network calls
+  const tokenCheck = jobberTokenStatus();
+  if (!tokenCheck.ok) {
+    statusEl.innerHTML = `<span style="color:#c0392b">⚠ ${tokenCheck.reason}</span>`;
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = '⏳ Sending to Jobber…';
   statusEl.textContent = '';
@@ -1211,16 +1464,16 @@ async function sendToJobber() {
       input: {
         firstName,
         lastName,
-        ...(phone   ? { phones: [{ number: phone, primary: true }] }     : {}),
-        ...(email   ? { emails: [{ address: email, primary: true }] }    : {}),
-        ...(address ? { billingAddress: { street: address } }            : {})
-      }
+        ...(phone   ? { phones: [{ number: phone, primary: true }] }  : {}),
+        ...(email   ? { emails: [{ address: email, primary: true }] } : {}),
+        ...(address ? { billingAddress: { street: address } }         : {}),
+      },
     });
 
     const clientErrors = clientRes.data?.clientCreate?.userErrors;
-    if (clientErrors?.length) throw new Error(clientErrors[0].message);
+    if (clientErrors?.length) throw new Error('Client: ' + clientErrors.map(e => e.message).join(', '));
     const clientId = clientRes.data?.clientCreate?.client?.id;
-    if (!clientId) throw new Error('No client ID returned from Jobber.');
+    if (!clientId) throw new Error('Jobber did not return a client ID — the client may already exist. Check Jobber for duplicates.');
 
     // 2. Create quote
     const quoteRes = await jobberGQL(`
@@ -1233,24 +1486,24 @@ async function sendToJobber() {
     `, {
       input: {
         clientId,
-        lineItems: buildJobberLineItems()
-      }
+        lineItems: buildJobberLineItems(),
+      },
     });
 
     const quoteErrors = quoteRes.data?.quoteCreate?.userErrors;
-    if (quoteErrors?.length) throw new Error(quoteErrors[0].message);
+    if (quoteErrors?.length) throw new Error('Quote: ' + quoteErrors.map(e => e.message).join(', '));
     const quote = quoteRes.data?.quoteCreate?.quote;
-    if (!quote) throw new Error('No quote returned from Jobber.');
+    if (!quote) throw new Error('Jobber did not return quote data — check Jobber directly to confirm.');
 
     btn.textContent = '✓ Quote Created!';
     btn.style.background = 'var(--green-dark)';
     statusEl.innerHTML = `<a href="${quote.webUri}" target="_blank" style="color:var(--green);font-weight:600">Open Quote #${quote.quoteNumber} in Jobber →</a>`;
+    logToSheets(quote.quoteNumber, quote.webUri);
 
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '📋 Create Quote in Jobber';
-    statusEl.textContent = '⚠ ' + (e.message || 'Unknown error — check the Jobber token.');
-    statusEl.style.color = '#c0392b';
+    statusEl.innerHTML = `<span style="color:#c0392b">⚠ ${e.message || 'Unknown error — check the Jobber token.'}</span>`;
   }
 }
 
