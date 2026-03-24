@@ -204,10 +204,14 @@
   .client-input {
     width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
     border-radius: 8px; font-size: 14px; font-family: 'DM Sans', sans-serif;
-    color: var(--text); background: var(--white); outline: none; transition: border-color 0.2s;
+    color: var(--text); background: var(--white); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box;
   }
   .client-input:focus { border-color: var(--green); }
   .client-input::placeholder { color: #bbb; }
+  .client-input.error { border-color: #c0392b !important; box-shadow: 0 0 0 3px rgba(192,57,43,0.12); }
+  .field-error { font-size: 11px; color: #c0392b; margin-top: 4px; display: none; }
+  .field-error.visible { display: block; }
   /* Jobber button */
   .btn-jobber {
     width: 100%; margin-top: 16px; padding: 14px;
@@ -598,8 +602,9 @@
       <div class="estimator-section">
         <div class="estimator-row">
           <div class="field">
-            <label>Estimator name</label>
-            <input type="text" id="estimator-name" class="client-input" placeholder="Your name">
+            <label>Estimator name <span style="color:#c0392b">*</span></label>
+            <input type="text" id="estimator-name" class="client-input" placeholder="Your name" oninput="clearError(this)">
+            <div class="field-error" id="err-estimator">Required</div>
           </div>
           <div class="field">
             <label>Deal Status</label>
@@ -617,22 +622,27 @@
       <div class="section-title">Client Info</div>
       <div class="client-grid">
         <div class="field">
-          <label>First Name</label>
-          <input type="text" id="client-first" class="client-input" placeholder="First">
+          <label>First Name <span style="color:#c0392b">*</span></label>
+          <input type="text" id="client-first" class="client-input" placeholder="First" oninput="clearError(this)">
+          <div class="field-error" id="err-first">Required</div>
         </div>
         <div class="field">
-          <label>Last Name</label>
-          <input type="text" id="client-last" class="client-input" placeholder="Last">
+          <label>Last Name <span style="color:#c0392b">*</span></label>
+          <input type="text" id="client-last" class="client-input" placeholder="Last" oninput="clearError(this)">
+          <div class="field-error" id="err-last">Required</div>
         </div>
       </div>
       <div class="field">
-        <label>Phone</label>
-        <input type="text" id="client-phone" class="client-input" placeholder="780-xxx-xxxx">
+        <label>Phone <span style="color:#c0392b">*</span></label>
+        <input type="text" id="client-phone" class="client-input" placeholder="780-xxx-xxxx" oninput="clearError(this)">
+        <div class="field-error" id="err-phone">Required</div>
       </div>
       <div class="field">
-        <label>Email</label>
-        <input type="email" id="client-email" class="client-input" placeholder="client@email.com">
+        <label>Email <span style="color:#c0392b">*</span></label>
+        <input type="email" id="client-email" class="client-input" placeholder="client@email.com" oninput="clearError(this)">
+        <div class="field-error" id="err-email">Required</div>
       </div>
+      <div id="jobber-token-warning" style="display:none;background:#fff8f0;border:1px solid #f5d0a0;border-radius:8px;padding:10px 12px;font-size:12px;color:#b05000;margin-top:12px;line-height:1.5"></div>
       <button class="btn-jobber" onclick="sendToJobber()">📋 Create Quote in Jobber</button>
       <div id="jobber-status"></div>
 
@@ -814,6 +824,36 @@ async function logToSheets(jobberQuoteNum, jobberQuoteUrl) {
 
 // ── STATE ──
 let map = null, autocomplete = null, drawingManager = null, activePolygons = [];
+let autoPolygonIsEstimate = false; // true when fallback/estimate polygon is shown — replaced on first manual draw
+
+// ── FORM VALIDATION ──
+function clearError(input) {
+  input.classList.remove('error');
+  const errEl = document.getElementById('err-' + input.id.replace('client-', '').replace('estimator-name', 'estimator'));
+  if (errEl) errEl.classList.remove('visible');
+}
+
+function validateForm() {
+  const checks = [
+    { id: 'estimator-name', errId: 'err-estimator' },
+    { id: 'client-first',   errId: 'err-first'     },
+    { id: 'client-last',    errId: 'err-last'       },
+    { id: 'client-phone',   errId: 'err-phone'      },
+    { id: 'client-email',   errId: 'err-email'      },
+  ];
+  let valid = true;
+  checks.forEach(({ id, errId }) => {
+    const el = document.getElementById(id);
+    const errEl = document.getElementById(errId);
+    if (!el.value.trim()) {
+      el.classList.add('error');
+      if (errEl) errEl.classList.add('visible');
+      if (valid) el.focus(); // focus the first empty field
+      valid = false;
+    }
+  });
+  return valid;
+}
 
 // Callback must exist on window BEFORE the script tag is injected
 window.onMapsReady = function() {
@@ -912,6 +952,13 @@ function initDrawing() {
   });
   drawingManager.setMap(map);
   google.maps.event.addListener(drawingManager, 'polygoncomplete', function(poly) {
+    // If the map currently shows an auto-estimate (fallback), replace it with
+    // what the user draws so we don't double-count the estimate + the drawn area.
+    if (autoPolygonIsEstimate) {
+      activePolygons.forEach(p => p.setMap(null));
+      activePolygons = [];
+      autoPolygonIsEstimate = false;
+    }
     activePolygons.push(poly);
     // Stay in drawing mode so more areas can be added immediately
     drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
@@ -932,6 +979,7 @@ function renderOsmPolygon(geomNodes) {
   if (!map) return;
   activePolygons.forEach(p => p.setMap(null));
   activePolygons = [];
+  autoPolygonIsEstimate = false; // real OSM data — not an estimate
   const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
   const poly = new google.maps.Polygon({
     paths: path,
@@ -946,30 +994,72 @@ function renderOsmPolygon(geomNodes) {
   recalcAllAreas();
 }
 
-// Sum all drawn polygons and update the sqft slider
+// Sum all active polygons and update the sqft slider
 function recalcAllAreas() {
   if (!activePolygons.length) return;
   let totalM2 = 0;
   activePolygons.forEach(p => { totalM2 += google.maps.geometry.spherical.computeArea(p.getPath()); });
   const sqft = Math.round(totalM2 * 10.7639);
-  const src = activePolygons.length > 1
-    ? activePolygons.length + ' areas combined'
-    : 'Drawn on satellite map';
+  const n = activePolygons.length;
+  const src = autoPolygonIsEstimate
+    ? (n > 1 ? 'Auto-estimate — ' + n + ' areas, drag to match lawn' : 'Auto-estimate — drag corners to match lawn')
+    : (n > 1 ? n + ' drawn areas — total combined' : 'Drawn on satellite map');
   setMeasured(sqft, src);
 }
 
-// Fallback: draw a square of estimated size centered on the pin
+// Add a single editable polygon to activePolygons without clearing existing ones.
+function addSinglePolygon(path) {
+  if (!map) return;
+  const poly = new google.maps.Polygon({
+    paths: path,
+    fillColor: '#1D9E75', fillOpacity: 0.28,
+    strokeColor: '#0a4a37', strokeWeight: 2.5,
+    editable: true, map: map,
+  });
+  activePolygons.push(poly);
+  ['set_at', 'insert_at'].forEach(ev =>
+    google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
+  );
+}
+
+// Fallback: draw TWO rectangles offset to the sides of the pin so they land on
+// lawn rather than on the house footprint. The geocoded pin typically sits on
+// the roof/driveway centre, so we offset one box in front (south) and one behind
+// (north) of the pin to represent typical front and back yard areas.
 function renderFallbackPolygon(lat, lng, sqftEstimate) {
+  activePolygons.forEach(p => p.setMap(null));
+  activePolygons = [];
+  autoPolygonIsEstimate = true;
+
   const R = 6371000;
-  const side = Math.sqrt(Math.max(50, sqftEstimate / 10.7639)) / 2;
-  const dlat = (side / R) * (180 / Math.PI);
+  // Each box gets ~45% of the total so combined = 90% (leaves room for adjustment)
+  const halfSqft = sqftEstimate * 0.45;
+  const halfSide = Math.sqrt(Math.max(25, halfSqft / 10.7639)) / 2;
+  const dlat = (halfSide / R) * (180 / Math.PI);
   const dlng = dlat / Math.cos(lat * Math.PI / 180);
-  renderOsmPolygon([
-    { lat: lat - dlat, lon: lng - dlng },
-    { lat: lat + dlat, lon: lng - dlng },
-    { lat: lat + dlat, lon: lng + dlng },
-    { lat: lat - dlat, lon: lng + dlng },
+
+  // Offset centre of each box by ~14 m (roughly one house-width) away from the pin
+  const offset = (14 / R) * (180 / Math.PI);
+
+  // Front yard (south of pin — toward street for typical North American layout)
+  const frontLat = lat - offset * 2;
+  addSinglePolygon([
+    new google.maps.LatLng(frontLat - dlat, lng - dlng),
+    new google.maps.LatLng(frontLat + dlat, lng - dlng),
+    new google.maps.LatLng(frontLat + dlat, lng + dlng),
+    new google.maps.LatLng(frontLat - dlat, lng + dlng),
   ]);
+
+  // Back yard (north of pin)
+  const backLat = lat + offset * 2;
+  addSinglePolygon([
+    new google.maps.LatLng(backLat - dlat, lng - dlng),
+    new google.maps.LatLng(backLat + dlat, lng - dlng),
+    new google.maps.LatLng(backLat + dlat, lng + dlng),
+    new google.maps.LatLng(backLat - dlat, lng + dlng),
+  ]);
+
+  recalcAllAreas();
 }
 
 function showAutoStatus(msg, state, icon) {
@@ -1149,7 +1239,9 @@ function resetMap() {
   if (drawingManager) drawingManager.setMap(null);
   activePolygons.forEach(p => p.setMap(null));
   activePolygons = [];
+  autoPolygonIsEstimate = false;
   document.getElementById('area-badge').style.display = 'none';
+  document.getElementById('auto-detect-status').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
   document.getElementById('map-wrap').style.display = 'none';
   document.getElementById('map-header').style.display = 'none';
@@ -1191,6 +1283,16 @@ function showApp() {
 function lockOut() { sessionStorage.removeItem(SK); location.reload(); }
 function togglePw() { const i = document.getElementById('pw-input'); i.type = i.type==='password' ? 'text' : 'password'; }
 checkSession();
+
+// Show Jobber token warning once the page loads so the estimator knows
+// before they try to create a quote.
+(function showJobberTokenWarning() {
+  const check = jobberTokenStatus();
+  if (!check.ok) {
+    const el = document.getElementById('jobber-token-warning');
+    if (el) { el.textContent = '⚠ ' + check.reason; el.style.display = 'block'; }
+  }
+})();
 
 // ── CALCULATOR ──
 const tiers = [
@@ -1431,10 +1533,7 @@ async function sendToJobber() {
   const email     = document.getElementById('client-email').value.trim();
   const address   = document.getElementById('address-input').value.trim();
 
-  if (!firstName || !lastName) {
-    alert('Enter the client first and last name before sending to Jobber.');
-    return;
-  }
+  if (!validateForm()) return;
 
   const btn = document.querySelector('.btn-jobber');
   const statusEl = document.getElementById('jobber-status');
