@@ -865,7 +865,6 @@ async function logToSheets(jobberQuoteNum, jobberQuoteUrl, rejectionReason) {
 
 // ── STATE ──
 let map = null, autocomplete = null, drawingManager = null, activePolygons = [];
-let autoPolygonIsEstimate = false; // true when fallback/estimate polygon is shown — replaced on first manual draw
 
 // ── FORM VALIDATION ──
 function clearError(input) {
@@ -993,13 +992,6 @@ function initDrawing() {
   });
   drawingManager.setMap(map);
   google.maps.event.addListener(drawingManager, 'polygoncomplete', function(poly) {
-    // If the map currently shows an auto-estimate (fallback), replace it with
-    // what the user draws so we don't double-count the estimate + the drawn area.
-    if (autoPolygonIsEstimate) {
-      activePolygons.forEach(p => p.setMap(null));
-      activePolygons = [];
-      autoPolygonIsEstimate = false;
-    }
     activePolygons.push(poly);
     // Stay in drawing mode so more areas can be added immediately
     drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
@@ -1020,7 +1012,6 @@ function renderOsmPolygon(geomNodes) {
   if (!map) return;
   activePolygons.forEach(p => p.setMap(null));
   activePolygons = [];
-  autoPolygonIsEstimate = false; // real OSM data — not an estimate
   const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
   const poly = new google.maps.Polygon({
     paths: path,
@@ -1035,72 +1026,30 @@ function renderOsmPolygon(geomNodes) {
   recalcAllAreas();
 }
 
-// Sum all active polygons and update the sqft slider
+// Sum all drawn polygons and update the sqft slider
 function recalcAllAreas() {
   if (!activePolygons.length) return;
   let totalM2 = 0;
   activePolygons.forEach(p => { totalM2 += google.maps.geometry.spherical.computeArea(p.getPath()); });
   const sqft = Math.round(totalM2 * 10.7639);
-  const n = activePolygons.length;
-  const src = autoPolygonIsEstimate
-    ? (n > 1 ? 'Auto-estimate — ' + n + ' areas, drag to match lawn' : 'Auto-estimate — drag corners to match lawn')
-    : (n > 1 ? n + ' drawn areas — total combined' : 'Drawn on satellite map');
+  const src = activePolygons.length > 1
+    ? activePolygons.length + ' areas combined'
+    : 'Drawn on satellite map';
   setMeasured(sqft, src);
 }
 
-// Add a single editable polygon to activePolygons without clearing existing ones.
-function addSinglePolygon(path) {
-  if (!map) return;
-  const poly = new google.maps.Polygon({
-    paths: path,
-    fillColor: '#1D9E75', fillOpacity: 0.28,
-    strokeColor: '#0a4a37', strokeWeight: 2.5,
-    editable: true, map: map,
-  });
-  activePolygons.push(poly);
-  ['set_at', 'insert_at'].forEach(ev =>
-    google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
-  );
-}
-
-// Fallback: draw TWO rectangles offset to the sides of the pin so they land on
-// lawn rather than on the house footprint. The geocoded pin typically sits on
-// the roof/driveway centre, so we offset one box in front (south) and one behind
-// (north) of the pin to represent typical front and back yard areas.
+// Fallback: draw a square of estimated size centered on the pin
 function renderFallbackPolygon(lat, lng, sqftEstimate) {
-  activePolygons.forEach(p => p.setMap(null));
-  activePolygons = [];
-  autoPolygonIsEstimate = true;
-
   const R = 6371000;
-  // Each box gets ~45% of the total so combined = 90% (leaves room for adjustment)
-  const halfSqft = sqftEstimate * 0.45;
-  const halfSide = Math.sqrt(Math.max(25, halfSqft / 10.7639)) / 2;
-  const dlat = (halfSide / R) * (180 / Math.PI);
+  const side = Math.sqrt(Math.max(50, sqftEstimate / 10.7639)) / 2;
+  const dlat = (side / R) * (180 / Math.PI);
   const dlng = dlat / Math.cos(lat * Math.PI / 180);
-
-  // Offset centre of each box by ~14 m (roughly one house-width) away from the pin
-  const offset = (14 / R) * (180 / Math.PI);
-
-  // Front yard (south of pin — toward street for typical North American layout)
-  const frontLat = lat - offset * 2;
-  addSinglePolygon([
-    new google.maps.LatLng(frontLat - dlat, lng - dlng),
-    new google.maps.LatLng(frontLat + dlat, lng - dlng),
-    new google.maps.LatLng(frontLat + dlat, lng + dlng),
-    new google.maps.LatLng(frontLat - dlat, lng + dlng),
+  renderOsmPolygon([
+    { lat: lat - dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng + dlng },
+    { lat: lat - dlat, lon: lng + dlng },
   ]);
-
-  // Back yard (north of pin)
-  const backLat = lat + offset * 2;
-  addSinglePolygon([
-    new google.maps.LatLng(backLat - dlat, lng - dlng),
-    new google.maps.LatLng(backLat + dlat, lng - dlng),
-    new google.maps.LatLng(backLat + dlat, lng + dlng),
-    new google.maps.LatLng(backLat - dlat, lng + dlng),
-  ]);
-
-  recalcAllAreas();
 }
 
 function showAutoStatus(msg, state, icon) {
@@ -1119,26 +1068,22 @@ async function autoDetectLawn(latLng) {
   showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
   document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
 
-  // Grass/lawn: 60m radius — wider than the lot so we catch grass tagged on the parcel edge.
-  // Building + parcel: 60m radius to account for geocoded pin landing at the kerb
+  // Grass/lawn: 30m radius to stay within the subject lot.
+  // Building + parcel: 40m radius to account for geocoded pin landing at the kerb
   // rather than the lot centre. Both way and relation types queried since cadastral
   // parcels are often stored as relations in OSM.
-  // landuse=residential is included as a last-resort lot boundary for Canadian suburbs
-  // where cadastral data is sparse.
-  const query = `[out:json][timeout:20];
+  const query = `[out:json][timeout:25];
 (
-  way["natural"="grass"](around:60,${lat},${lng});
-  way["landuse"="grass"](around:60,${lat},${lng});
-  way["leisure"="garden"](around:60,${lat},${lng});
-  way["landuse"="lawn"](around:60,${lat},${lng});
-  way["building"](around:60,${lat},${lng});
-  relation["building"](around:60,${lat},${lng});
-  way["boundary"="cadastral"](around:60,${lat},${lng});
-  relation["boundary"="cadastral"](around:60,${lat},${lng});
-  way["landuse"="plot"](around:60,${lat},${lng});
-  relation["landuse"="plot"](around:60,${lat},${lng});
-  way["landuse"="residential"](around:80,${lat},${lng});
-  relation["landuse"="residential"](around:80,${lat},${lng});
+  way["natural"="grass"](around:30,${lat},${lng});
+  way["landuse"="grass"](around:30,${lat},${lng});
+  way["leisure"="garden"](around:30,${lat},${lng});
+  way["landuse"="lawn"](around:30,${lat},${lng});
+  way["building"](around:40,${lat},${lng});
+  relation["building"](around:40,${lat},${lng});
+  way["boundary"="cadastral"](around:40,${lat},${lng});
+  relation["boundary"="cadastral"](around:40,${lat},${lng});
+  way["landuse"="plot"](around:40,${lat},${lng});
+  relation["landuse"="plot"](around:40,${lat},${lng});
 );
 out geom tags;`;
 
@@ -1150,15 +1095,11 @@ out geom tags;`;
   async function fetchOverpass(query) {
     for (const endpoint of OVERPASS_ENDPOINTS) {
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000);
         const resp = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'data=' + encodeURIComponent(query),
-          signal: controller.signal,
         });
-        clearTimeout(timer);
         if (resp.ok) return resp.json();
       } catch (_) { /* try next endpoint */ }
     }
@@ -1245,10 +1186,8 @@ out geom tags;`;
       renderFallbackPolygon(lat, lng, 1500);
     }
   } catch (err) {
-    showAutoStatus('Could not reach map data — showing estimated outline, drag to adjust', 'warn', '⚠');
-    document.getElementById('sqft-hint').textContent = 'Map data unavailable — drag the corners of the outlined area to match the yard.';
-    setMeasured(1500, 'Estimated starting point — draw to refine');
-    renderFallbackPolygon(lat, lng, 1500);
+    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
+    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
   }
 }
 
@@ -1280,7 +1219,6 @@ function resetMap() {
   if (drawingManager) drawingManager.setMap(null);
   activePolygons.forEach(p => p.setMap(null));
   activePolygons = [];
-  autoPolygonIsEstimate = false;
   document.getElementById('area-badge').style.display = 'none';
   document.getElementById('auto-detect-status').style.display = 'none';
   document.getElementById('draw-tip').style.display = 'none';
