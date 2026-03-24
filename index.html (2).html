@@ -246,19 +246,28 @@
   .deal-btn.pending.active { background: #fffbf0; color: #8a6000; border-color: #e0c060; }
 
   .action-bar { display: flex; gap: 12px; margin-top: 22px; }
-  .btn-approve {
-    flex: 1; padding: 15px; background: #1D9E75; color: #fff; border: none;
-    border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; transition: background 0.15s, transform 0.1s;
-  }
-  .btn-approve:hover  { background: #0f6e52; }
-  .btn-approve:active { transform: scale(0.98); }
   .btn-reject {
-    flex: 1; padding: 15px; background: none; color: #c0392b;
-    border: 2px solid #f0b0b0; border-radius: 10px; font-size: 15px; font-weight: 700;
+    flex: 1; padding: 13px; background: none; color: #c0392b;
+    border: 1.5px solid #f0b0b0; border-radius: 10px; font-size: 14px; font-weight: 700;
     cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
   .btn-reject:hover { background: #fff5f5; border-color: #c0392b; }
+  .reject-select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--text);
+    background: var(--white); outline: none; transition: border-color 0.15s;
+    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center;
+  }
+  .reject-select:focus { border-color: #c0392b; }
+  .reject-notes {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text);
+    background: var(--white); outline: none; resize: vertical; min-height: 72px;
+    transition: border-color 0.15s; box-sizing: border-box; margin-top: 10px;
+  }
+  .reject-notes:focus { border-color: #c0392b; }
+  .reject-notes::placeholder { color: #bbb; }
 
   .modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 2000;
@@ -313,26 +322,25 @@
   }
   .reject-overlay.open { display: flex; }
   .reject-box {
-    background: var(--white); border-radius: 14px; padding: 28px;
-    width: 100%; max-width: 360px; text-align: center;
+    background: var(--white); border-radius: 14px; padding: 26px 26px 22px;
+    width: 100%; max-width: 400px; text-align: left;
     box-shadow: 0 8px 40px rgba(0,0,0,0.2); animation: min 0.2s ease;
   }
-  .reject-icon  { font-size: 40px; margin-bottom: 12px; }
-  .reject-title { font-size: 17px; font-weight: 700; color: #c0392b; margin-bottom: 8px; }
-  .reject-sub   { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
-  .reject-btn-row { display: flex; gap: 10px; }
+  .reject-title { font-size: 17px; font-weight: 700; color: #c0392b; margin-bottom: 6px; }
+  .reject-sub   { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+  .reject-btn-row { display: flex; gap: 10px; margin-top: 16px; }
   .reject-btn-edit {
-    flex: 1; padding: 12px; background: var(--green); color: #fff; border: none;
-    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
-  }
-  .reject-btn-edit:hover { background: var(--green-dark); }
-  .reject-btn-discard {
-    flex: 1; padding: 12px; background: none; color: #c0392b;
-    border: 1.5px solid #f0b0b0; border-radius: 9px; font-size: 14px; font-weight: 700;
+    padding: 11px 18px; background: none; color: var(--muted);
+    border: 1.5px solid var(--border); border-radius: 9px; font-size: 14px; font-weight: 600;
     cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
-  .reject-btn-discard:hover { background: #fff5f5; border-color: #c0392b; }
+  .reject-btn-edit:hover { border-color: var(--text); color: var(--text); }
+  .reject-btn-discard {
+    flex: 1; padding: 11px; background: #c0392b; color: #fff;
+    border: none; border-radius: 9px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .reject-btn-discard:hover { background: #a93226; }
 </style>
 </head>
 <body>
@@ -652,10 +660,9 @@
         Not included: grass under trampolines or immovable furniture
       </p>
 
-      <!-- APPROVE / REJECT -->
+      <!-- REJECT -->
       <div class="action-bar">
-        <button class="btn-approve" onclick="openApprove()">✓ Approve Quote</button>
-        <button class="btn-reject"  onclick="openReject()">✕ Reject Quote</button>
+        <button class="btn-reject" onclick="openReject()">✕ Reject Quote</button>
       </div>
 
     </div>
@@ -710,12 +717,27 @@
 <!-- REJECT MODAL -->
 <div class="reject-overlay" id="reject-modal">
   <div class="reject-box">
-    <div class="reject-icon">✕</div>
     <div class="reject-title">Reject this quote?</div>
-    <div class="reject-sub">The current quote will be cleared and sliders reset. You can also go back and edit the values instead.</div>
+    <div class="reject-sub">Log the reason below — this will be saved with the quote record.</div>
+    <div style="margin-bottom:10px">
+      <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;font-family:'DM Mono',monospace">Reason</label>
+      <select id="reject-reason" class="reject-select">
+        <option value="">— Select a reason —</option>
+        <option value="Price too high">Price too high</option>
+        <option value="Chose a different company">Chose a different company</option>
+        <option value="Going with a referral">Going with a referral</option>
+        <option value="Scheduling didn't work out">Scheduling didn't work out</option>
+        <option value="No longer needs service">No longer needs service</option>
+        <option value="No response from client">No response from client</option>
+        <option value="Property sold / client moved">Property sold / client moved</option>
+        <option value="Service area too far">Service area too far</option>
+        <option value="Other">Other</option>
+      </select>
+      <textarea id="reject-notes" class="reject-notes" placeholder="Additional notes (optional)"></textarea>
+    </div>
     <div class="reject-btn-row">
-      <button class="reject-btn-edit"    onclick="closeReject()">Edit quote</button>
-      <button class="reject-btn-discard" onclick="discardQuote()">Discard</button>
+      <button class="reject-btn-edit"    onclick="closeReject()">Go back</button>
+      <button class="reject-btn-discard" onclick="discardQuote()">Log &amp; discard</button>
     </div>
   </div>
 </div>
@@ -747,11 +769,12 @@ const JOBBER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjE5ODkzOTAsImlzcyI6Imh0dHBzO
 //   L  Deal Status        — Won / Lost / Pending
 //   M  Jobber Quote #     — filled after Jobber create
 //   N  Jobber Quote URL   — filled after Jobber create
+//   O  Rejection Reason   — filled when quote is rejected (reason + notes)
 const SHEETS_ID  = '';   // e.g. '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
 const SHEETS_KEY = '';   // Google Cloud API key with Sheets API enabled
 const SHEETS_TAB = 'Quotes'; // Name of the sheet tab
 
-async function logToSheets(jobberQuoteNum, jobberQuoteUrl) {
+async function logToSheets(jobberQuoteNum, jobberQuoteUrl, rejectionReason) {
   if (!SHEETS_ID || !SHEETS_KEY) return; // not configured yet
 
   const sqft  = +document.getElementById('sqft').value;
@@ -809,9 +832,10 @@ async function logToSheets(jobberQuoteNum, jobberQuoteUrl) {
     activeDeal.charAt(0).toUpperCase() + activeDeal.slice(1),
     jobberQuoteNum || '',
     jobberQuoteUrl || '',
+    rejectionReason || '',
   ];
 
-  const range = encodeURIComponent(SHEETS_TAB + '!A:N');
+  const range = encodeURIComponent(SHEETS_TAB + '!A:O');
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${range}:append?valueInputOption=USER_ENTERED&key=${SHEETS_KEY}`;
   try {
     await fetch(url, {
@@ -1458,12 +1482,23 @@ function submitApprove() {
   document.getElementById('modal-sent-view').style.display = '';
 }
 function openReject() {
+  document.getElementById('reject-reason').value = '';
+  document.getElementById('reject-notes').value = '';
   document.getElementById('reject-modal').classList.add('open');
 }
 function closeReject() {
   document.getElementById('reject-modal').classList.remove('open');
 }
 function discardQuote() {
+  // Capture reason before clearing so it can be logged to Sheets
+  const reason = document.getElementById('reject-reason').value;
+  const notes  = document.getElementById('reject-notes').value.trim();
+  const reasonText = [reason, notes].filter(Boolean).join(' — ') || 'No reason given';
+
+  // Mark deal as Lost and log to Sheets before wiping everything
+  setDeal('lost');
+  logToSheets('', '', reasonText);
+
   closeReject();
   // Reset all sliders to defaults
   ['sqft','disposal','bags','slope','overgrown','obstructions','aeration','overseeding','rockbed','fruit','pine','weed','debris','fert'].forEach(id => {
