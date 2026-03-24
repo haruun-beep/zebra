@@ -949,7 +949,8 @@ function showMap(latLng, address) {
     map = new google.maps.Map(document.getElementById('google-map'), {
       zoom: 19, center: latLng, mapTypeId: 'satellite', tilt: 0,
       disableDefaultUI: true, zoomControl: true, fullscreenControl: true,
-      gestureHandling: 'none',
+      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
+      gestureHandling: 'greedy',
     });
   } else {
     map.setCenter(latLng); map.setZoom(19);
