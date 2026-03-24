@@ -204,25 +204,10 @@
   .client-input {
     width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
     border-radius: 8px; font-size: 14px; font-family: 'DM Sans', sans-serif;
-    color: var(--text); background: var(--white); outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box;
+    color: var(--text); background: var(--white); outline: none; transition: border-color 0.2s;
   }
   .client-input:focus { border-color: var(--green); }
   .client-input::placeholder { color: #bbb; }
-  .client-input.error { border-color: #c0392b !important; box-shadow: 0 0 0 3px rgba(192,57,43,0.12); }
-  .field-error { font-size: 11px; color: #c0392b; margin-top: 4px; display: none; }
-  .field-error.visible { display: block; }
-  /* Copy quote button */
-  .btn-copy-quote {
-    width: 100%; margin-top: 0; padding: 11px;
-    background: #f0f4f0; color: #2d6a2d; border: 1.5px solid #b6d4b6; border-radius: 10px;
-    font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif;
-    cursor: pointer; transition: background 0.15s, border-color 0.15s;
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-  }
-  .btn-copy-quote:hover { background: #e0ede0; border-color: #8bbf8b; }
-  .btn-copy-quote.copied { background: #d4edda; border-color: #6abf6a; color: #1a5c1a; }
-  #copy-quote-status { font-size: 12px; color: #4a8c4a; text-align: center; min-height: 16px; margin-top: 4px; }
   /* Jobber button */
   .btn-jobber {
     width: 100%; margin-top: 16px; padding: 14px;
@@ -239,42 +224,20 @@
     text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; vertical-align: middle;
   }
 
-  .estimator-section { margin-bottom: 0; }
-  .estimator-row { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
-  .estimator-row .field { flex: 1; min-width: 150px; }
-  .deal-status-group { display: flex; gap: 8px; margin-top: 0; }
-  .deal-btn {
-    flex: 1; padding: 9px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
-    cursor: pointer; border: 1.5px solid var(--border); background: var(--white);
-    color: var(--muted); font-family: 'DM Sans', sans-serif; transition: all 0.15s;
-  }
-  .deal-btn.won.active    { background: #e8f8f0; color: #0f6e52; border-color: var(--green); }
-  .deal-btn.lost.active   { background: #fff5f5; color: #c0392b; border-color: #e08080; }
-  .deal-btn.pending.active { background: #fffbf0; color: #8a6000; border-color: #e0c060; }
-
   .action-bar { display: flex; gap: 12px; margin-top: 22px; }
+  .btn-approve {
+    flex: 1; padding: 15px; background: #1D9E75; color: #fff; border: none;
+    border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s, transform 0.1s;
+  }
+  .btn-approve:hover  { background: #0f6e52; }
+  .btn-approve:active { transform: scale(0.98); }
   .btn-reject {
-    flex: 1; padding: 13px; background: none; color: #c0392b;
-    border: 1.5px solid #f0b0b0; border-radius: 10px; font-size: 14px; font-weight: 700;
+    flex: 1; padding: 15px; background: none; color: #c0392b;
+    border: 2px solid #f0b0b0; border-radius: 10px; font-size: 15px; font-weight: 700;
     cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
   .btn-reject:hover { background: #fff5f5; border-color: #c0392b; }
-  .reject-select {
-    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
-    font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--text);
-    background: var(--white); outline: none; transition: border-color 0.15s;
-    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center;
-  }
-  .reject-select:focus { border-color: #c0392b; }
-  .reject-notes {
-    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
-    font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text);
-    background: var(--white); outline: none; resize: vertical; min-height: 72px;
-    transition: border-color 0.15s; box-sizing: border-box; margin-top: 10px;
-  }
-  .reject-notes:focus { border-color: #c0392b; }
-  .reject-notes::placeholder { color: #bbb; }
 
   .modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 2000;
@@ -329,25 +292,26 @@
   }
   .reject-overlay.open { display: flex; }
   .reject-box {
-    background: var(--white); border-radius: 14px; padding: 26px 26px 22px;
-    width: 100%; max-width: 400px; text-align: left;
+    background: var(--white); border-radius: 14px; padding: 28px;
+    width: 100%; max-width: 360px; text-align: center;
     box-shadow: 0 8px 40px rgba(0,0,0,0.2); animation: min 0.2s ease;
   }
-  .reject-title { font-size: 17px; font-weight: 700; color: #c0392b; margin-bottom: 6px; }
-  .reject-sub   { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
-  .reject-btn-row { display: flex; gap: 10px; margin-top: 16px; }
+  .reject-icon  { font-size: 40px; margin-bottom: 12px; }
+  .reject-title { font-size: 17px; font-weight: 700; color: #c0392b; margin-bottom: 8px; }
+  .reject-sub   { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+  .reject-btn-row { display: flex; gap: 10px; }
   .reject-btn-edit {
-    padding: 11px 18px; background: none; color: var(--muted);
-    border: 1.5px solid var(--border); border-radius: 9px; font-size: 14px; font-weight: 600;
+    flex: 1; padding: 12px; background: var(--green); color: #fff; border: none;
+    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+  }
+  .reject-btn-edit:hover { background: var(--green-dark); }
+  .reject-btn-discard {
+    flex: 1; padding: 12px; background: none; color: #c0392b;
+    border: 1.5px solid #f0b0b0; border-radius: 9px; font-size: 14px; font-weight: 700;
     cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
   }
-  .reject-btn-edit:hover { border-color: var(--text); color: var(--text); }
-  .reject-btn-discard {
-    flex: 1; padding: 11px; background: #c0392b; color: #fff;
-    border: none; border-radius: 9px; font-size: 14px; font-weight: 700;
-    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.15s;
-  }
-  .reject-btn-discard:hover { background: #a93226; }
+  .reject-btn-discard:hover { background: #fff5f5; border-color: #c0392b; }
 </style>
 </head>
 <body>
@@ -456,7 +420,7 @@
         </label>
         <input type="range" id="sqft" min="500" max="10000" value="1500" step="100" oninput="onSqftManual()">
         <div class="sub-labels"><span>500</span><span>2,500</span><span>5,000</span><span>7,500</span><span>10,000 sq ft</span></div>
-        <div class="field-desc" id="sqft-hint">Draw the yard on the satellite map above, or drag to set manually.</div>
+        <div class="field-desc" id="sqft-hint">Enter the property address above to auto-measure, or drag to set manually.</div>
       </div>
 
       <div class="divider"></div>
@@ -606,59 +570,27 @@
         </div>
       </div>
 
-      <!-- COPY QUOTE -->
-      <div style="margin-top:16px">
-        <button class="btn-copy-quote" id="copy-quote-btn" onclick="copyQuoteText()">📄 Copy Quote to Clipboard</button>
-        <div id="copy-quote-status"></div>
-      </div>
-
-      <!-- ESTIMATOR -->
-      <div class="divider"></div>
-      <div class="section-title">Estimator</div>
-      <div class="estimator-section">
-        <div class="estimator-row">
-          <div class="field">
-            <label>Estimator name <span style="color:#c0392b">*</span></label>
-            <input type="text" id="estimator-name" class="client-input" placeholder="Your name" oninput="clearError(this)">
-            <div class="field-error" id="err-estimator">Required</div>
-          </div>
-          <div class="field">
-            <label>Deal Status</label>
-            <div class="deal-status-group">
-              <button class="deal-btn pending active" id="deal-pending" onclick="setDeal('pending')">Pending</button>
-              <button class="deal-btn won"     id="deal-won"     onclick="setDeal('won')">Won</button>
-              <button class="deal-btn lost"    id="deal-lost"    onclick="setDeal('lost')">Lost</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- CLIENT INFO & JOBBER -->
       <div class="divider"></div>
       <div class="section-title">Client Info</div>
       <div class="client-grid">
         <div class="field">
-          <label>First Name <span style="color:#c0392b">*</span></label>
-          <input type="text" id="client-first" class="client-input" placeholder="First" oninput="clearError(this)">
-          <div class="field-error" id="err-first">Required</div>
+          <label>First Name</label>
+          <input type="text" id="client-first" class="client-input" placeholder="First">
         </div>
         <div class="field">
-          <label>Last Name <span style="color:#c0392b">*</span></label>
-          <input type="text" id="client-last" class="client-input" placeholder="Last" oninput="clearError(this)">
-          <div class="field-error" id="err-last">Required</div>
+          <label>Last Name</label>
+          <input type="text" id="client-last" class="client-input" placeholder="Last">
         </div>
       </div>
       <div class="field">
-        <label>Phone <span style="color:#c0392b">*</span></label>
-        <input type="text" id="client-phone" class="client-input" placeholder="780-xxx-xxxx" oninput="clearError(this)">
-        <div class="field-error" id="err-phone">Required</div>
+        <label>Phone</label>
+        <input type="text" id="client-phone" class="client-input" placeholder="780-xxx-xxxx">
       </div>
       <div class="field">
-        <label>Email <span style="color:#c0392b">*</span></label>
-        <input type="email" id="client-email" class="client-input" placeholder="client@email.com" oninput="clearError(this)">
-        <div class="field-error" id="err-email">Required</div>
+        <label>Email</label>
+        <input type="email" id="client-email" class="client-input" placeholder="client@email.com">
       </div>
-      <div id="jobber-token-warning" style="display:none;background:#fff8f0;border:1px solid #f5d0a0;border-radius:8px;padding:10px 12px;font-size:12px;color:#b05000;margin-top:12px;line-height:1.5"></div>
       <button class="btn-jobber" onclick="sendToJobber()">📋 Create Quote in Jobber</button>
       <div id="jobber-status"></div>
 
@@ -668,9 +600,10 @@
         Not included: grass under trampolines or immovable furniture
       </p>
 
-      <!-- REJECT -->
+      <!-- APPROVE / REJECT -->
       <div class="action-bar">
-        <button class="btn-reject" onclick="openReject()">✕ Reject Quote</button>
+        <button class="btn-approve" onclick="openApprove()">✓ Approve Quote</button>
+        <button class="btn-reject"  onclick="openReject()">✕ Reject Quote</button>
       </div>
 
     </div>
@@ -725,27 +658,12 @@
 <!-- REJECT MODAL -->
 <div class="reject-overlay" id="reject-modal">
   <div class="reject-box">
+    <div class="reject-icon">✕</div>
     <div class="reject-title">Reject this quote?</div>
-    <div class="reject-sub">Log the reason below — this will be saved with the quote record.</div>
-    <div style="margin-bottom:10px">
-      <label style="display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;font-family:'DM Mono',monospace">Reason</label>
-      <select id="reject-reason" class="reject-select">
-        <option value="">— Select a reason —</option>
-        <option value="Price too high">Price too high</option>
-        <option value="Chose a different company">Chose a different company</option>
-        <option value="Going with a referral">Going with a referral</option>
-        <option value="Scheduling didn't work out">Scheduling didn't work out</option>
-        <option value="No longer needs service">No longer needs service</option>
-        <option value="No response from client">No response from client</option>
-        <option value="Property sold / client moved">Property sold / client moved</option>
-        <option value="Service area too far">Service area too far</option>
-        <option value="Other">Other</option>
-      </select>
-      <textarea id="reject-notes" class="reject-notes" placeholder="Additional notes (optional)"></textarea>
-    </div>
+    <div class="reject-sub">The current quote will be cleared and sliders reset. You can also go back and edit the values instead.</div>
     <div class="reject-btn-row">
-      <button class="reject-btn-edit"    onclick="closeReject()">Go back</button>
-      <button class="reject-btn-discard" onclick="discardQuote()">Log &amp; discard</button>
+      <button class="reject-btn-edit"    onclick="closeReject()">Edit quote</button>
+      <button class="reject-btn-discard" onclick="discardQuote()">Discard</button>
     </div>
   </div>
 </div>
@@ -760,131 +678,8 @@
 const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
 const JOBBER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjE5ODkzOTAsImlzcyI6Imh0dHBzOi8vYXBpLmdldGpvYmJlci5jb20iLCJjbGllbnRfaWQiOiIxYzJhMzg1MS04ZGY5LTQ2MjItOTEzYy00NjhjNTExZGI2MTciLCJzY29wZSI6InJlYWRfY2xpZW50cyByZWFkX3F1b3RlcyIsImFwcF9pZCI6IjFjMmEzODUxLThkZjktNDYyMi05MTNjLTQ2OGM1MTFkYjYxNyIsInVzZXJfaWQiOjE5ODkzOTAsImFjY291bnRfaWQiOjEwMzU1MTYsImV4cCI6MTc3NDIyOTkyMH0.LIWXUZTJc0mLf5yLvL13JXbZfOfFLP-OmwxeXf-r';
 
-// ── GOOGLE SHEETS ──
-// Paste your Sheet ID and API key below when ready.
-// Sheet column order (A→N):
-//   A  Timestamp          — auto-filled (ISO 8601)
-//   B  Estimator          — from Estimator Name field
-//   C  Client Name        — first + last
-//   D  Property Address   — from address bar
-//   E  Sq Ft              — measured yard size
-//   F  Yard Tier          — e.g. "Average Yard"
-//   G  Services           — comma-separated add-ons
-//   H  Base Price         — spring cleanup line only
-//   I  Subtotal           — before discount
-//   J  Discount           — label + amount (e.g. "Senior 15% -$33")
-//   K  Final Total        — after discount, excl. GST
-//   L  Deal Status        — Won / Lost / Pending
-//   M  Jobber Quote #     — filled after Jobber create
-//   N  Jobber Quote URL   — filled after Jobber create
-//   O  Rejection Reason   — filled when quote is rejected (reason + notes)
-const SHEETS_ID  = '';   // e.g. '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms'
-const SHEETS_KEY = '';   // Google Cloud API key with Sheets API enabled
-const SHEETS_TAB = 'Quotes'; // Name of the sheet tab
-
-async function logToSheets(jobberQuoteNum, jobberQuoteUrl, rejectionReason) {
-  if (!SHEETS_ID || !SHEETS_KEY) return; // not configured yet
-
-  const sqft  = +document.getElementById('sqft').value;
-  const tier  = (tiers.find(t => sqft <= t.max) || tiers[tiers.length - 1]).label;
-  const total = document.getElementById('r-total').textContent;
-  const base  = document.getElementById('r-base').textContent;
-
-  // Collect active add-on labels
-  const serviceRows = [
-    { id: 'r-bag-row',     label: 'Clipping Bag Disposal' },
-    { id: 'r-slope-row',   label: 'Slope Surcharge' },
-    { id: 'r-og-row',      label: 'Overgrown Fee' },
-    { id: 'r-obs-row',     label: 'Obstructions' },
-    { id: 'r-aer-row',     label: 'Core Aeration' },
-    { id: 'r-seed-row',    label: 'Overseeding' },
-    { id: 'r-rock-row',    label: 'Rockbed Cleanup' },
-    { id: 'r-weed-row',    label: 'Weed Removal' },
-    { id: 'r-fruit-row',   label: 'Fallen Fruit' },
-    { id: 'r-pine-row',    label: 'Pine Cones' },
-    { id: 'r-debris-row',  label: 'Pet Waste' },
-    { id: 'r-fert-row',    label: 'Fertilization' },
-  ];
-  const services = serviceRows
-    .filter(s => document.getElementById(s.id) && document.getElementById(s.id).style.display !== 'none')
-    .map(s => s.label)
-    .join(', ');
-
-  const discountEl = document.getElementById('r-discount-row');
-  const discountText = (discountEl && discountEl.style.display !== 'none')
-    ? (document.getElementById('r-discount-label').textContent + ' ' + document.getElementById('r-discount-val').textContent)
-    : '';
-
-  // Compute subtotal before discount
-  const lineItems = buildJobberLineItems();
-  const subtotal = lineItems.filter(i => i.unitPrice > 0).reduce((s, i) => s + i.unitPrice * i.quantity, 0);
-
-  const firstName = document.getElementById('client-first').value.trim();
-  const lastName  = document.getElementById('client-last').value.trim();
-  const clientName = (firstName + ' ' + lastName).trim();
-  const address   = document.getElementById('address-input').value.trim();
-  const estimator = document.getElementById('estimator-name').value.trim();
-
-  const row = [
-    new Date().toISOString(),
-    estimator,
-    clientName,
-    address,
-    sqft,
-    tier,
-    services,
-    base,
-    '$' + Math.round(subtotal),
-    discountText,
-    total,
-    activeDeal.charAt(0).toUpperCase() + activeDeal.slice(1),
-    jobberQuoteNum || '',
-    jobberQuoteUrl || '',
-    rejectionReason || '',
-  ];
-
-  const range = encodeURIComponent(SHEETS_TAB + '!A:O');
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${range}:append?valueInputOption=USER_ENTERED&key=${SHEETS_KEY}`;
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [row] }),
-    });
-  } catch (_) { /* non-critical — Jobber create already succeeded */ }
-}
-
 // ── STATE ──
 let map = null, autocomplete = null, drawingManager = null, activePolygons = [];
-
-// ── FORM VALIDATION ──
-function clearError(input) {
-  input.classList.remove('error');
-  const errEl = document.getElementById('err-' + input.id.replace('client-', '').replace('estimator-name', 'estimator'));
-  if (errEl) errEl.classList.remove('visible');
-}
-
-function validateForm() {
-  const checks = [
-    { id: 'estimator-name', errId: 'err-estimator' },
-    { id: 'client-first',   errId: 'err-first'     },
-    { id: 'client-last',    errId: 'err-last'       },
-    { id: 'client-phone',   errId: 'err-phone'      },
-    { id: 'client-email',   errId: 'err-email'      },
-  ];
-  let valid = true;
-  checks.forEach(({ id, errId }) => {
-    const el = document.getElementById(id);
-    const errEl = document.getElementById(errId);
-    if (!el.value.trim()) {
-      el.classList.add('error');
-      if (errEl) errEl.classList.add('visible');
-      if (valid) el.focus(); // focus the first empty field
-      valid = false;
-    }
-  });
-  return valid;
-}
 
 // Callback must exist on window BEFORE the script tag is injected
 window.onMapsReady = function() {
@@ -949,8 +744,7 @@ function showMap(latLng, address) {
     map = new google.maps.Map(document.getElementById('google-map'), {
       zoom: 19, center: latLng, mapTypeId: 'satellite', tilt: 0,
       disableDefaultUI: true, zoomControl: true, fullscreenControl: true,
-      zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_CENTER },
-      gestureHandling: 'greedy',
+      gestureHandling: 'none',
     });
   } else {
     map.setCenter(latLng); map.setZoom(19);
@@ -990,6 +784,197 @@ function initDrawing() {
   });
 }
 
+// ── AUTO-DETECT LAWN AREA via OpenStreetMap Overpass API ──
+
+function osmPolyArea(geomNodes) {
+  // geomNodes is an array of {lat, lon} from Overpass out geom
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  return google.maps.geometry.spherical.computeArea(path); // returns m²
+}
+
+function renderOsmPolygon(geomNodes) {
+  if (!map) return;
+  activePolygons.forEach(p => p.setMap(null));
+  activePolygons = [];
+  const path = geomNodes.map(n => new google.maps.LatLng(n.lat, n.lon));
+  const poly = new google.maps.Polygon({
+    paths: path,
+    fillColor: '#1D9E75', fillOpacity: 0.28,
+    strokeColor: '#0a4a37', strokeWeight: 2.5,
+    editable: true, map: map,
+  });
+  activePolygons.push(poly);
+  ['set_at', 'insert_at'].forEach(ev =>
+    google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas)
+  );
+  recalcAllAreas();
+}
+
+// Sum all drawn polygons and update the sqft slider
+function recalcAllAreas() {
+  if (!activePolygons.length) return;
+  let totalM2 = 0;
+  activePolygons.forEach(p => { totalM2 += google.maps.geometry.spherical.computeArea(p.getPath()); });
+  const sqft = Math.round(totalM2 * 10.7639);
+  const src = activePolygons.length > 1
+    ? activePolygons.length + ' areas combined'
+    : 'Drawn on satellite map';
+  setMeasured(sqft, src);
+}
+
+// Fallback: draw a square of estimated size centered on the pin
+function renderFallbackPolygon(lat, lng, sqftEstimate) {
+  const R = 6371000;
+  const side = Math.sqrt(Math.max(50, sqftEstimate / 10.7639)) / 2;
+  const dlat = (side / R) * (180 / Math.PI);
+  const dlng = dlat / Math.cos(lat * Math.PI / 180);
+  renderOsmPolygon([
+    { lat: lat - dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng - dlng },
+    { lat: lat + dlat, lon: lng + dlng },
+    { lat: lat - dlat, lon: lng + dlng },
+  ]);
+}
+
+function showAutoStatus(msg, state, icon) {
+  const el   = document.getElementById('auto-detect-status');
+  const msgEl = document.getElementById('auto-detect-msg');
+  const iconEl = document.getElementById('auto-detect-icon');
+  el.style.display = 'flex';
+  el.className = state || 'loading';
+  msgEl.textContent = msg;
+  iconEl.textContent = icon || (state === 'success' ? '✓' : state === 'estimate' ? '~' : state === 'warn' ? '⚠' : '⏳');
+}
+
+async function autoDetectLawn(latLng) {
+  const lat = latLng.lat();
+  const lng = latLng.lng();
+  showAutoStatus('Detecting lawn area from map data…', 'loading', '⏳');
+  document.getElementById('sqft-hint').textContent = 'Auto-detecting lawn area — this takes a moment…';
+
+  // Grass/lawn: 30m radius to stay within the subject lot.
+  // Building + parcel: 40m radius to account for geocoded pin landing at the kerb
+  // rather than the lot centre. Both way and relation types queried since cadastral
+  // parcels are often stored as relations in OSM.
+  const query = `[out:json][timeout:25];
+(
+  way["natural"="grass"](around:30,${lat},${lng});
+  way["landuse"="grass"](around:30,${lat},${lng});
+  way["leisure"="garden"](around:30,${lat},${lng});
+  way["landuse"="lawn"](around:30,${lat},${lng});
+  way["building"](around:40,${lat},${lng});
+  relation["building"](around:40,${lat},${lng});
+  way["boundary"="cadastral"](around:40,${lat},${lng});
+  relation["boundary"="cadastral"](around:40,${lat},${lng});
+  way["landuse"="plot"](around:40,${lat},${lng});
+  relation["landuse"="plot"](around:40,${lat},${lng});
+);
+out geom tags;`;
+
+  const OVERPASS_ENDPOINTS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+
+  async function fetchOverpass(query) {
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const resp = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(query),
+        });
+        if (resp.ok) return resp.json();
+      } catch (_) { /* try next endpoint */ }
+    }
+    throw new Error('All Overpass endpoints failed');
+  }
+
+  try {
+    const data = await fetchOverpass(query);
+
+    let grassSqft = 0, buildingSqft = 0, lotSqft = 0;
+    let bestGrassGeom = null, bestGrassArea = 0;
+    let bestLotGeom = null, bestLotArea = 0;
+
+    for (const el of (data.elements || [])) {
+      const t = el.tags || {};
+      let geom = null;
+
+      if (el.type === 'way' && el.geometry && el.geometry.length >= 3) {
+        geom = el.geometry;
+      } else if (el.type === 'relation' && Array.isArray(el.members)) {
+        // Use the outer ring of the relation for area calculation
+        const outer = el.members.find(m => m.role === 'outer' && m.geometry && m.geometry.length >= 3);
+        if (outer) geom = outer.geometry;
+      }
+
+      if (!geom) continue;
+      const sqft = osmPolyArea(geom) * 10.7639;
+
+      if (t.natural === 'grass' || t.landuse === 'grass' || t.landuse === 'lawn' || t.leisure === 'garden') {
+        grassSqft += sqft;
+        if (sqft > bestGrassArea) { bestGrassArea = sqft; bestGrassGeom = geom; }
+      } else if (t.building) {
+        buildingSqft += sqft;
+      } else if (t.boundary === 'cadastral' || t.landuse === 'plot') {
+        // Individual parcel boundary — accept any plausible residential lot size (incl. townhouses)
+        if (sqft >= 600 && sqft <= 22000) {
+          lotSqft += sqft;
+          if (sqft > bestLotArea) { bestLotArea = sqft; bestLotGeom = geom; }
+        }
+      }
+    }
+
+    let result = 0, confidence = '', state = 'success';
+
+    if (grassSqft >= 300) {
+      // Direct grass/lawn polygons found — most accurate
+      result = grassSqft;
+      confidence = 'Measured from grass area in OpenStreetMap';
+      state = 'success';
+    } else if (lotSqft >= 600) {
+      // Estimate: lot area minus building footprint, minus ~20% for hard surfaces
+      result = Math.max(300, (lotSqft - buildingSqft) * 0.78);
+      confidence = 'Estimated from lot boundary — draw to refine';
+      state = 'estimate';
+    } else if (buildingSqft >= 300) {
+      // Only have building; use size-aware lot-to-building ratio to estimate lawn area
+      let ratio;
+      if (buildingSqft <= 800) ratio = 2.5;       // small house — likely smaller dense lot
+      else if (buildingSqft <= 1500) ratio = 2.0;  // typical detached
+      else ratio = 1.6;                             // large house — tighter lot ratio
+      result = buildingSqft * ratio;
+      confidence = 'Rough estimate from building footprint — draw to refine';
+      state = 'estimate';
+    }
+
+    if (result >= 300 && result <= 12000) {
+      showAutoStatus(confidence, state);
+      setMeasured(Math.round(result),
+        state === 'success' ? 'Auto — OpenStreetMap grass data'
+                            : 'Estimated from map boundary data');
+      // Render on the map: use OSM polygon if available, else draw a square
+      const geomToRender = grassSqft >= 300 ? bestGrassGeom : bestLotGeom;
+      if (geomToRender) {
+        renderOsmPolygon(geomToRender);
+      } else {
+        renderFallbackPolygon(lat, lng, Math.round(result));
+        showAutoStatus(confidence + ' — adjust the outline to match', state);
+      }
+    } else {
+      // No OSM data at all — render a default 1 500 sqft square as a starting point
+      showAutoStatus('No map data found — adjust the outline below to match the yard', 'warn', '⚠');
+      document.getElementById('sqft-hint').textContent = 'No map data — drag the corners of the outlined area to match the yard.';
+      setMeasured(1500, 'Estimated starting point — draw to refine');
+      renderFallbackPolygon(lat, lng, 1500);
+    }
+  } catch (err) {
+    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
+    document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+  }
+}
+
 function applyArea(poly, source) {
   const m2   = google.maps.geometry.spherical.computeArea(poly.getPath());
   // Apply 0.95 calibration factor — polygon tracing tends to over-capture edges by ~5%
@@ -1005,7 +990,8 @@ function setMeasured(sqft, source) {
   const clamped = Math.max(500, Math.min(10000, calibrated));
   const rounded = Math.round(clamped / 100) * 100;
   document.getElementById('sqft').value = rounded;
-  document.getElementById('auto-badge').style.display = 'none';
+  document.getElementById('auto-badge').style.display = 'inline-block';
+  document.getElementById('sqft-hint').textContent = 'Auto-measured — drag to adjust if needed.';
   document.getElementById('badge-sqft').textContent = rounded.toLocaleString();
   document.getElementById('badge-src').textContent = source;
   const badge = document.getElementById('area-badge');
@@ -1023,13 +1009,13 @@ function resetMap() {
   document.getElementById('map-header').style.display = 'none';
   document.querySelector('.btn-confirm-site').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
-  document.getElementById('sqft-hint').textContent = 'Draw the yard on the satellite map above, or drag to set manually.';
+  document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
   drawingManager = null; map = null;
 }
 
 function onSqftManual() {
   document.getElementById('auto-badge').style.display = 'none';
-  document.getElementById('sqft-hint').textContent = 'Draw the yard on the satellite map above, or drag to set manually.';
+  document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
   setDefaultBags(); calc();
 }
 
@@ -1059,16 +1045,6 @@ function showApp() {
 function lockOut() { sessionStorage.removeItem(SK); location.reload(); }
 function togglePw() { const i = document.getElementById('pw-input'); i.type = i.type==='password' ? 'text' : 'password'; }
 checkSession();
-
-// Show Jobber token warning once the page loads so the estimator knows
-// before they try to create a quote.
-(function showJobberTokenWarning() {
-  const check = jobberTokenStatus();
-  if (!check.ok) {
-    const el = document.getElementById('jobber-token-warning');
-    if (el) { el.textContent = '⚠ ' + check.reason; el.style.display = 'block'; }
-  }
-})();
 
 // ── CALCULATOR ──
 const tiers = [
@@ -1188,129 +1164,19 @@ function calc(){
 }
 calc();
 
-// ── DEAL STATUS ──
-let activeDeal = 'pending';
-function setDeal(status) {
-  activeDeal = status;
-  ['pending','won','lost'].forEach(s => {
-    document.getElementById('deal-' + s).classList.toggle('active', s === status);
-  });
-}
-
-// ── MODALS ──
-function openApprove() {
-  const total = document.getElementById('r-total').textContent;
-  document.getElementById('modal-total-display').textContent = total;
-  // Pre-fill from client fields if already entered
-  const fn = document.getElementById('client-first').value.trim();
-  const ln = document.getElementById('client-last').value.trim();
-  if (fn || ln) document.getElementById('m-name').value = (fn + ' ' + ln).trim();
-  const addr = document.getElementById('address-input').value.trim();
-  if (addr) document.getElementById('m-address').value = addr;
-  const ph = document.getElementById('client-phone').value.trim();
-  if (ph) document.getElementById('m-phone').value = ph;
-  const em = document.getElementById('client-email').value.trim();
-  if (em) document.getElementById('m-email').value = em;
-  document.getElementById('modal-form-view').style.display = '';
-  document.getElementById('modal-sent-view').style.display = 'none';
-  document.getElementById('approve-modal').classList.add('open');
-}
-function closeApprove() {
-  document.getElementById('approve-modal').classList.remove('open');
-}
-function submitApprove() {
-  // Copy modal fields back to the main client fields
-  const name = document.getElementById('m-name').value.trim();
-  if (name) {
-    const parts = name.split(' ');
-    document.getElementById('client-first').value = parts[0] || '';
-    document.getElementById('client-last').value = parts.slice(1).join(' ') || '';
-  }
-  const ph = document.getElementById('m-phone').value.trim();
-  if (ph) document.getElementById('client-phone').value = ph;
-  const em = document.getElementById('m-email').value.trim();
-  if (em) document.getElementById('client-email').value = em;
-  document.getElementById('modal-form-view').style.display = 'none';
-  document.getElementById('modal-sent-view').style.display = '';
-}
-function openReject() {
-  document.getElementById('reject-reason').value = '';
-  document.getElementById('reject-notes').value = '';
-  document.getElementById('reject-modal').classList.add('open');
-}
-function closeReject() {
-  document.getElementById('reject-modal').classList.remove('open');
-}
-function discardQuote() {
-  // Capture reason before clearing so it can be logged to Sheets
-  const reason = document.getElementById('reject-reason').value;
-  const notes  = document.getElementById('reject-notes').value.trim();
-  const reasonText = [reason, notes].filter(Boolean).join(' — ') || 'No reason given';
-
-  // Mark deal as Lost and log to Sheets before wiping everything
-  setDeal('lost');
-  logToSheets('', '', reasonText);
-
-  closeReject();
-  // Reset all sliders to defaults
-  ['sqft','disposal','bags','slope','overgrown','obstructions','aeration','overseeding','rockbed','fruit','pine','weed','debris','fert'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = el.min || 0;
-  });
-  activeDiscount = null;
-  ecoOn = false;
-  document.getElementById('eco-track').style.background = '#ddd';
-  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
-  document.getElementById('eco-label').style.color = '#bbb';
-  Object.keys(discounts).forEach(k => document.getElementById('d-cell-' + k).classList.remove('active'));
-  resetMap();
-  calc();
-}
-
 // ── JOBBER INTEGRATION ──
-
-// Decode JWT payload without verification (client-side only — token is already stored in this file)
-function decodeJwtPayload(token) {
-  try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(atob(b64));
-  } catch (_) { return null; }
-}
-
-function jobberTokenStatus() {
-  const p = decodeJwtPayload(JOBBER_TOKEN);
-  if (!p) return { ok: false, reason: 'Token is malformed — paste the full token from Jobber.' };
-  const nowSec = Math.floor(Date.now() / 1000);
-  if (p.exp && p.exp < nowSec) {
-    const d = new Date(p.exp * 1000).toLocaleDateString('en-CA');
-    return { ok: false, reason: `Token expired on ${d} — generate a new one in Jobber → Settings → API → Connected Apps.` };
-  }
-  const scope = (p.scope || '').split(' ');
-  const needsWrite = !scope.includes('write_clients') && !scope.includes('create_clients');
-  const needsQuote = !scope.includes('write_quotes') && !scope.includes('create_quotes');
-  if (needsWrite || needsQuote) {
-    const missing = [needsWrite && 'write_clients', needsQuote && 'write_quotes'].filter(Boolean).join(', ');
-    return { ok: false, reason: `Token is missing required scopes: ${missing}. Re-authorize the app in Jobber → Settings → API → Connected Apps and select write permissions.` };
-  }
-  return { ok: true };
-}
-
 async function jobberGQL(query, variables) {
   const r = await fetch('https://api.getjobber.com/api/graphql', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + JOBBER_TOKEN,
-      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28',
+      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28'
     },
-    body: JSON.stringify({ query, variables }),
+    body: JSON.stringify({ query, variables })
   });
-  if (r.status === 401) throw new Error('Jobber rejected the token (401) — it may be expired or revoked. Generate a new token in Jobber → Settings → API.');
-  if (r.status === 403) throw new Error('Jobber returned 403 Forbidden — the token does not have permission for this action. Check scopes in Jobber → Settings → API → Connected Apps.');
-  if (!r.ok) throw new Error(`Jobber API returned ${r.status} — check your network connection and try again.`);
-  const json = await r.json();
-  if (json.errors && json.errors.length) throw new Error(json.errors.map(e => e.message).join(' | '));
-  return json;
+  if (!r.ok) throw new Error('Jobber API error: ' + r.status);
+  return r.json();
 }
 
 async function sendToJobber() {
@@ -1320,18 +1186,13 @@ async function sendToJobber() {
   const email     = document.getElementById('client-email').value.trim();
   const address   = document.getElementById('address-input').value.trim();
 
-  if (!validateForm()) return;
-
-  const btn = document.querySelector('.btn-jobber');
-  const statusEl = document.getElementById('jobber-status');
-
-  // Pre-flight: check token before making any network calls
-  const tokenCheck = jobberTokenStatus();
-  if (!tokenCheck.ok) {
-    statusEl.innerHTML = `<span style="color:#c0392b">⚠ ${tokenCheck.reason}</span>`;
+  if (!firstName || !lastName) {
+    alert('Enter the client first and last name before sending to Jobber.');
     return;
   }
 
+  const btn = document.querySelector('.btn-jobber');
+  const statusEl = document.getElementById('jobber-status');
   btn.disabled = true;
   btn.textContent = '⏳ Sending to Jobber…';
   statusEl.textContent = '';
@@ -1350,16 +1211,16 @@ async function sendToJobber() {
       input: {
         firstName,
         lastName,
-        ...(phone   ? { phones: [{ number: phone, primary: true }] }  : {}),
-        ...(email   ? { emails: [{ address: email, primary: true }] } : {}),
-        ...(address ? { billingAddress: { street: address } }         : {}),
-      },
+        ...(phone   ? { phones: [{ number: phone, primary: true }] }     : {}),
+        ...(email   ? { emails: [{ address: email, primary: true }] }    : {}),
+        ...(address ? { billingAddress: { street: address } }            : {})
+      }
     });
 
     const clientErrors = clientRes.data?.clientCreate?.userErrors;
-    if (clientErrors?.length) throw new Error('Client: ' + clientErrors.map(e => e.message).join(', '));
+    if (clientErrors?.length) throw new Error(clientErrors[0].message);
     const clientId = clientRes.data?.clientCreate?.client?.id;
-    if (!clientId) throw new Error('Jobber did not return a client ID — the client may already exist. Check Jobber for duplicates.');
+    if (!clientId) throw new Error('No client ID returned from Jobber.');
 
     // 2. Create quote
     const quoteRes = await jobberGQL(`
@@ -1372,24 +1233,24 @@ async function sendToJobber() {
     `, {
       input: {
         clientId,
-        lineItems: buildJobberLineItems(),
-      },
+        lineItems: buildJobberLineItems()
+      }
     });
 
     const quoteErrors = quoteRes.data?.quoteCreate?.userErrors;
-    if (quoteErrors?.length) throw new Error('Quote: ' + quoteErrors.map(e => e.message).join(', '));
+    if (quoteErrors?.length) throw new Error(quoteErrors[0].message);
     const quote = quoteRes.data?.quoteCreate?.quote;
-    if (!quote) throw new Error('Jobber did not return quote data — check Jobber directly to confirm.');
+    if (!quote) throw new Error('No quote returned from Jobber.');
 
     btn.textContent = '✓ Quote Created!';
     btn.style.background = 'var(--green-dark)';
     statusEl.innerHTML = `<a href="${quote.webUri}" target="_blank" style="color:var(--green);font-weight:600">Open Quote #${quote.quoteNumber} in Jobber →</a>`;
-    logToSheets(quote.quoteNumber, quote.webUri);
 
   } catch(e) {
     btn.disabled = false;
     btn.textContent = '📋 Create Quote in Jobber';
-    statusEl.innerHTML = `<span style="color:#c0392b">⚠ ${e.message || 'Unknown error — check the Jobber token.'}</span>`;
+    statusEl.textContent = '⚠ ' + (e.message || 'Unknown error — check the Jobber token.');
+    statusEl.style.color = '#c0392b';
   }
 }
 
@@ -1452,53 +1313,6 @@ function buildJobberLineItems() {
   }
 
   return items;
-}
-
-function copyQuoteText() {
-  const sqft  = +document.getElementById('sqft').value;
-  const items = buildJobberLineItems();
-
-  const baseItem = items[0];
-  const addons   = items.slice(1);
-
-  let text = 'Spring cleanup for a ' + baseItem.name.replace('Spring Cleanup — ', '') +
-    ' property (' + sqft.toLocaleString() + ' sq ft). ' +
-    'Includes power raking, hand raking, first mowing & trimming, power edging, ' +
-    'leaf & debris cleanup, rockbed blowout, and clipping/debris bagging.';
-
-  const positiveAddons = addons.filter(i => i.unitPrice >= 0);
-  const discount       = addons.find(i => i.unitPrice < 0);
-
-  if (positiveAddons.length) {
-    const parts = positiveAddons.map(i => {
-      const total = i.unitPrice * i.quantity;
-      return i.name + ' ($' + total.toFixed(2).replace(/\.00$/, '') + ')';
-    });
-    text += ' Additional services: ' + parts.join(', ') + '.';
-  }
-
-  if (discount) {
-    const amt = Math.abs(discount.unitPrice * discount.quantity);
-    text += ' ' + discount.name + ' applied (-$' + amt.toFixed(2).replace(/\.00$/, '') + ').';
-  }
-
-  const totalEl = document.getElementById('r-total');
-  text += '\n\nEstimated Total: ' + (totalEl ? totalEl.textContent : '') + ' (excl. GST)';
-
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('copy-quote-btn');
-    const status = document.getElementById('copy-quote-status');
-    btn.classList.add('copied');
-    btn.textContent = '✓ Copied!';
-    status.textContent = 'Quote details copied — paste into Jobber, email, or notes.';
-    setTimeout(() => {
-      btn.classList.remove('copied');
-      btn.innerHTML = '📄 Copy Quote to Clipboard';
-      status.textContent = '';
-    }, 3000);
-  }).catch(() => {
-    document.getElementById('copy-quote-status').textContent = 'Copy failed — try selecting and copying manually.';
-  });
 }
 </script>
 </body>
