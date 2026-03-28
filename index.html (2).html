@@ -376,7 +376,7 @@
       <button class="btn-confirm-site" onclick="confirmSite()">✏️ Draw / add areas</button>
 
       <div id="draw-tip">
-        <strong>Draw mode on:</strong> Click points on the satellite image to trace an area. Close the shape by clicking your first point. Draw multiple areas to combine them — useful for separated lawn sections or to exclude obstructions.
+        <strong>Polygon is editable:</strong> Drag any vertex to reshape the measured area. Use the <em>polygon tool</em> in the map controls to draw additional areas (combined automatically). Click <strong>Clear &amp; Re-draw</strong> to start fresh.
       </div>
 
       <div id="auto-detect-status" style="display:none;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:13px;margin-top:8px">
@@ -579,7 +579,14 @@
         </div>
       </div>
 
-      <!-- CLIENT INFO & JOBBER -->
+      <!-- ESTIMATOR & CLIENT INFO -->
+      <div class="divider"></div>
+      <div class="section-title">Estimator</div>
+      <div class="field">
+        <label>Your Name</label>
+        <input type="text" id="estimator-name" class="client-input" placeholder="Who is preparing this quote?">
+      </div>
+
       <div class="divider"></div>
       <div class="section-title">Client Info</div>
       <div class="client-grid">
@@ -753,7 +760,7 @@ function showMap(latLng, address) {
     map = new google.maps.Map(document.getElementById('google-map'), {
       zoom: 19, center: latLng, mapTypeId: 'satellite', tilt: 0,
       disableDefaultUI: true, zoomControl: true, fullscreenControl: true,
-      gestureHandling: 'none',
+      gestureHandling: 'cooperative',
     });
   } else {
     map.setCenter(latLng); map.setZoom(19);
@@ -767,6 +774,44 @@ function confirmSite() {
   document.getElementById('draw-tip').style.display = 'block';
   initDrawing();
   document.getElementById('draw-tip').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function activateDrawingAfterDetect() {
+  // Initialize drawing manager in null mode (no active drawing) so existing polygons
+  // remain selectable/editable and the user can click "Draw new area" to add more.
+  if (!map) return;
+  if (!drawingManager) {
+    drawingManager = new google.maps.drawing.DrawingManager({
+      drawingMode: null,
+      drawingControl: true,
+      drawingControlOptions: {
+        position: google.maps.ControlPosition.TOP_CENTER,
+        drawingModes: [google.maps.drawing.OverlayType.POLYGON],
+      },
+      polygonOptions: {
+        fillColor: '#1D9E75', fillOpacity: 0.28,
+        strokeColor: '#0a4a37', strokeWeight: 2.5,
+        editable: true,
+      },
+    });
+    drawingManager.setMap(map);
+    google.maps.event.addListener(drawingManager, 'polygoncomplete', function(poly) {
+      activePolygons.push(poly);
+      drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+      recalcAllAreas();
+      ['set_at','insert_at'].forEach(ev => google.maps.event.addListener(poly.getPath(), ev, recalcAllAreas));
+    });
+  }
+  document.getElementById('draw-tip').style.display = 'block';
+  const btn = document.querySelector('.btn-confirm-site');
+  btn.textContent = '🔄 Clear & Re-draw';
+  btn.onclick = function() {
+    activePolygons.forEach(p => p.setMap(null));
+    activePolygons = [];
+    document.getElementById('area-badge').style.display = 'none';
+    if (drawingManager) drawingManager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    document.getElementById('draw-tip').style.display = 'block';
+  };
 }
 
 function initDrawing() {
@@ -973,16 +1018,20 @@ out geom tags;`;
         renderFallbackPolygon(lat, lng, Math.round(result));
         showAutoStatus(confidence + ' — adjust the outline to match', state);
       }
+      activateDrawingAfterDetect();
     } else {
       // No OSM data at all — render a default 1 500 sqft square as a starting point
       showAutoStatus('No map data found — adjust the outline below to match the yard', 'warn', '⚠');
       document.getElementById('sqft-hint').textContent = 'No map data — drag the corners of the outlined area to match the yard.';
       setMeasured(1500, 'Estimated starting point — draw to refine');
       renderFallbackPolygon(lat, lng, 1500);
+      activateDrawingAfterDetect();
     }
   } catch (err) {
-    showAutoStatus('Could not auto-detect — use the drawing tool below to measure', 'warn', '⚠');
+    showAutoStatus('Could not auto-detect — draw the yard outline on the map to measure', 'warn', '⚠');
     document.getElementById('sqft-hint').textContent = 'Auto-detection failed — draw the yard boundary on the satellite map above.';
+    renderFallbackPolygon(lat, lng, 1500);
+    activateDrawingAfterDetect();
   }
 }
 
@@ -1257,6 +1306,7 @@ async function sendToJobber() {
     btn.textContent = '✓ Quote Created!';
     btn.style.background = 'var(--green-dark)';
     statusEl.innerHTML = `<a href="${quote.webUri}" target="_blank" style="color:var(--green);font-weight:600">Open Quote #${quote.quoteNumber} in Jobber →</a>`;
+    sendToSheets(buildSheetsPayload({ source: 'jobber', jobberQuote: quote.quoteNumber }));
 
   } catch(e) {
     btn.disabled = false;
@@ -1325,6 +1375,134 @@ function buildJobberLineItems() {
   }
 
   return items;
+}
+
+// ── MODAL FUNCTIONS ──
+function openApprove() {
+  document.getElementById('modal-total-display').textContent = document.getElementById('r-total').textContent;
+  document.getElementById('modal-form-view').style.display = '';
+  document.getElementById('modal-sent-view').style.display = 'none';
+  // Pre-fill from client info if already entered
+  const name = (document.getElementById('client-first').value + ' ' + document.getElementById('client-last').value).trim();
+  if (name) document.getElementById('m-name').value = name;
+  if (document.getElementById('client-phone').value) document.getElementById('m-phone').value = document.getElementById('client-phone').value;
+  if (document.getElementById('client-email').value) document.getElementById('m-email').value = document.getElementById('client-email').value;
+  if (document.getElementById('address-input').value) document.getElementById('m-address').value = document.getElementById('address-input').value;
+  document.getElementById('approve-modal').classList.add('open');
+}
+function closeApprove() {
+  document.getElementById('approve-modal').classList.remove('open');
+}
+async function submitApprove() {
+  await sendToSheets(buildSheetsPayload({
+    source: 'approve',
+    clientName: document.getElementById('m-name').value.trim(),
+    phone: document.getElementById('m-phone').value.trim(),
+    email: document.getElementById('m-email').value.trim(),
+    address: document.getElementById('m-address').value.trim(),
+  }));
+  document.getElementById('modal-form-view').style.display = 'none';
+  document.getElementById('modal-sent-view').style.display = '';
+}
+function openReject() {
+  document.getElementById('reject-modal').classList.add('open');
+}
+function closeReject() {
+  document.getElementById('reject-modal').classList.remove('open');
+}
+function discardQuote() {
+  closeReject();
+  // Reset all range sliders to default
+  document.querySelectorAll('input[type=range]').forEach(r => { r.value = r.defaultValue || 0; });
+  document.getElementById('sqft').value = 1500;
+  // Reset discount
+  activeDiscount = null;
+  Object.keys(discounts).forEach(k => document.getElementById('d-cell-'+k).classList.remove('active'));
+  // Reset eco toggle
+  ecoOn = false;
+  document.getElementById('eco-track').style.background = '#ddd';
+  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
+  document.getElementById('eco-label').style.color = '#bbb';
+  // Reset map
+  resetMap();
+  calc();
+}
+
+// ── GOOGLE SHEETS INTEGRATION ──
+// Setup: create a Google Sheet, deploy an Apps Script web app that accepts POST,
+// and paste the deployed URL below. The script should do:
+//   function doPost(e) {
+//     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+//     var d = JSON.parse(e.postData.contents);
+//     sheet.appendRow([d.timestamp, d.estimator, d.clientFirst, d.clientLast,
+//       d.phone, d.email, d.address, d.sqft, d.tier, d.total, d.source, ...]);
+//     return ContentService.createTextOutput('ok');
+//   }
+const SHEETS_WEBHOOK_URL = ''; // ← paste your Apps Script web app URL here
+
+async function sendToSheets(payload) {
+  if (!SHEETS_WEBHOOK_URL) return;
+  try {
+    await fetch(SHEETS_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch(e) {
+    console.warn('Sheets logging failed:', e);
+  }
+}
+
+function buildSheetsPayload(extra) {
+  const sqft        = +document.getElementById('sqft').value;
+  const disposal    = +document.getElementById('disposal').value;
+  const bags        = +document.getElementById('bags').value;
+  const slope       = +document.getElementById('slope').value;
+  const overgrown   = +document.getElementById('overgrown').value;
+  const aeration    = +document.getElementById('aeration').value;
+  const overseeding = +document.getElementById('overseeding').value;
+  const rockbed     = +document.getElementById('rockbed').value;
+  const fruit       = +document.getElementById('fruit').value;
+  const pine        = +document.getElementById('pine').value;
+  const weed        = +document.getElementById('weed').value;
+  const debris      = +document.getElementById('debris').value;
+  const fert        = +document.getElementById('fert').value;
+  const obstructions= +document.getElementById('obstructions').value;
+  const tier        = tiers.find(t => sqft <= t.max) || tiers[tiers.length-1];
+  const slopeNames  = ['None','Moderate','Significant'];
+  const ogNames     = ['Normal','Overgrown','Very overgrown'];
+  const obsNames    = ['None','Minor','Moderate','Heavy'];
+  const rockNames   = ['Not added','Light','Moderate','Full'];
+  const weedNames   = ['Not included','Light','Moderate','Heavy','Extensive','Maximum'];
+  const seedPcts    = ['Not added','25%','50%','75%','100%','150%'];
+  return {
+    timestamp:   new Date().toISOString(),
+    estimator:   document.getElementById('estimator-name').value.trim(),
+    clientFirst: document.getElementById('client-first').value.trim(),
+    clientLast:  document.getElementById('client-last').value.trim(),
+    phone:       document.getElementById('client-phone').value.trim(),
+    email:       document.getElementById('client-email').value.trim(),
+    address:     document.getElementById('address-input').value.trim(),
+    sqft,
+    tier:        tier.label,
+    disposal:    disposal === 0 ? 'Bagged' : 'Mulched',
+    bags:        disposal === 0 ? bags : 0,
+    slope:       slopeNames[slope],
+    overgrown:   ogNames[overgrown],
+    obstructions:obsNames[obstructions],
+    aeration:    aeration ? 'Yes' : 'No',
+    overseeding: seedPcts[overseeding],
+    rockbed:     rockNames[rockbed],
+    weed:        weedNames[weed],
+    fruit:       fruit ? 'Yes' : 'No',
+    pine:        pine  ? 'Yes' : 'No',
+    debris:      debris? 'Yes' : 'No',
+    fertilization: fert ? (ecoOn ? 'Eco' : 'Standard') : 'No',
+    discount:    activeDiscount || 'None',
+    total:       document.getElementById('r-total').textContent,
+    ...extra,
+  };
 }
 </script>
 </body>
