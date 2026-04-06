@@ -207,16 +207,15 @@
   }
   .client-input:focus { border-color: var(--green); }
   .client-input::placeholder { color: #bbb; }
-  /* Jobber button */
-  .btn-jobber {
+  /* Copy quote button */
+  .btn-copy-quote {
     width: 100%; margin-top: 16px; padding: 14px;
     background: var(--green); color: var(--white); border: none; border-radius: 10px;
     font-size: 15px; font-weight: 700; font-family: 'DM Sans', sans-serif;
     cursor: pointer; transition: background 0.15s, opacity 0.15s;
   }
-  .btn-jobber:hover:not(:disabled) { background: var(--green-dark); }
-  .btn-jobber:disabled { opacity: 0.6; cursor: default; }
-  #jobber-status { margin-top: 10px; font-size: 13px; text-align: center; min-height: 18px; }
+  .btn-copy-quote:hover { background: var(--green-dark); }
+  #copy-status { margin-top: 8px; font-size: 13px; text-align: center; min-height: 18px; color: var(--green-deep); }
   .auto-badge {
     display: inline-block; background: var(--green); color: var(--white);
     font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
@@ -235,13 +234,6 @@
   }
   .btn-approve:hover  { background: #0f6e52; }
   .btn-approve:active { transform: scale(0.98); }
-  .btn-reject {
-    flex: 1; padding: 15px; background: none; color: #c0392b;
-    border: 2px solid #f0b0b0; border-radius: 10px; font-size: 15px; font-weight: 700;
-    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
-  }
-  .btn-reject:hover { background: #fff5f5; border-color: #c0392b; }
-
   .modal-overlay {
     display: none; position: fixed; inset: 0; z-index: 2000;
     background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 20px;
@@ -289,32 +281,6 @@
   .modal-sent-title { font-size: 17px; font-weight: 700; color: var(--green-deep); margin-bottom: 6px; }
   .modal-sent-sub   { font-size: 13px; color: var(--muted); line-height: 1.6; }
   .modal-jobber-note { background: var(--green-light); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #0a4a37; margin-top: 14px; line-height: 1.6; border: 1px solid var(--green-mid); }
-  .reject-overlay {
-    display: none; position: fixed; inset: 0; z-index: 2000;
-    background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 20px;
-  }
-  .reject-overlay.open { display: flex; }
-  .reject-box {
-    background: var(--white); border-radius: 14px; padding: 28px;
-    width: 100%; max-width: 360px; text-align: center;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.2); animation: min 0.2s ease;
-  }
-  .reject-icon  { font-size: 40px; margin-bottom: 12px; }
-  .reject-title { font-size: 17px; font-weight: 700; color: #c0392b; margin-bottom: 8px; }
-  .reject-sub   { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
-  .reject-btn-row { display: flex; gap: 10px; }
-  .reject-btn-edit {
-    flex: 1; padding: 12px; background: var(--green); color: #fff; border: none;
-    border-radius: 9px; font-size: 14px; font-weight: 700; cursor: pointer;
-    font-family: 'DM Sans', sans-serif; transition: background 0.15s;
-  }
-  .reject-btn-edit:hover { background: var(--green-dark); }
-  .reject-btn-discard {
-    flex: 1; padding: 12px; background: none; color: #c0392b;
-    border: 1.5px solid #f0b0b0; border-radius: 9px; font-size: 14px; font-weight: 700;
-    cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s;
-  }
-  .reject-btn-discard:hover { background: #fff5f5; border-color: #c0392b; }
 </style>
 </head>
 <body>
@@ -606,19 +572,14 @@
         <label>Email</label>
         <input type="email" id="client-email" class="client-input" placeholder="client@email.com">
       </div>
-      <button class="btn-jobber" onclick="sendToJobber()">📋 Create Quote in Jobber</button>
-      <div id="jobber-status"></div>
-
       <p class="footer-note">
         Weather dependent · First-come, first-serve booking<br>
         Payment: cash, cheque, e-transfer, debit &amp; credit<br>
         Not included: grass under trampolines or immovable furniture
       </p>
 
-      <!-- REJECT -->
-      <div class="action-bar" style="margin-top:22px">
-        <button class="btn-reject" style="flex:1" onclick="openReject()">✕ Reject Quote</button>
-      </div>
+      <button class="btn-copy-quote" onclick="copyQuote()">Copy Quote Text</button>
+      <div id="copy-status"></div>
 
     </div>
   </div>
@@ -665,19 +626,6 @@
         <div class="modal-sent-sub">Client details have been recorded.<br>Once Jobber is connected, this will send automatically.</div>
         <button class="modal-btn-send" style="margin-top:20px;width:100%" onclick="closeApprove()">Done</button>
       </div>
-    </div>
-  </div>
-</div>
-
-<!-- REJECT MODAL -->
-<div class="reject-overlay" id="reject-modal">
-  <div class="reject-box">
-    <div class="reject-icon">✕</div>
-    <div class="reject-title">Reject this quote?</div>
-    <div class="reject-sub">The current quote will be cleared and sliders reset. You can also go back and edit the values instead.</div>
-    <div class="reject-btn-row">
-      <button class="reject-btn-edit"    onclick="closeReject()">Edit quote</button>
-      <button class="reject-btn-discard" onclick="discardQuote()">Discard</button>
     </div>
   </div>
 </div>
@@ -1255,97 +1203,6 @@ function calc(){
 }
 calc();
 
-// ── JOBBER INTEGRATION ──
-async function jobberGQL(query, variables) {
-  const r = await fetch('https://api.getjobber.com/api/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + JOBBER_TOKEN,
-      'X-JOBBER-GRAPHQL-VERSION': '2024-02-28'
-    },
-    body: JSON.stringify({ query, variables })
-  });
-  if (!r.ok) throw new Error('Jobber API error: ' + r.status);
-  return r.json();
-}
-
-async function sendToJobber() {
-  const firstName = document.getElementById('client-first').value.trim();
-  const lastName  = document.getElementById('client-last').value.trim();
-  const phone     = document.getElementById('client-phone').value.trim();
-  const email     = document.getElementById('client-email').value.trim();
-  const address   = document.getElementById('address-input').value.trim();
-
-  if (!firstName || !lastName) {
-    alert('Enter the client first and last name before sending to Jobber.');
-    return;
-  }
-
-  const btn = document.querySelector('.btn-jobber');
-  const statusEl = document.getElementById('jobber-status');
-  btn.disabled = true;
-  btn.textContent = '⏳ Sending to Jobber…';
-  statusEl.textContent = '';
-  statusEl.style.color = '';
-
-  try {
-    // 1. Create client
-    const clientRes = await jobberGQL(`
-      mutation ClientCreate($input: ClientCreateInput!) {
-        clientCreate(input: $input) {
-          client { id }
-          userErrors { message path }
-        }
-      }
-    `, {
-      input: {
-        firstName,
-        lastName,
-        ...(phone   ? { phones: [{ number: phone, primary: true }] }     : {}),
-        ...(email   ? { emails: [{ address: email, primary: true }] }    : {}),
-        ...(address ? { billingAddress: { street: address } }            : {})
-      }
-    });
-
-    const clientErrors = clientRes.data?.clientCreate?.userErrors;
-    if (clientErrors?.length) throw new Error(clientErrors[0].message);
-    const clientId = clientRes.data?.clientCreate?.client?.id;
-    if (!clientId) throw new Error('No client ID returned from Jobber.');
-
-    // 2. Create quote
-    const quoteRes = await jobberGQL(`
-      mutation QuoteCreate($input: QuoteCreateInput!) {
-        quoteCreate(input: $input) {
-          quote { id quoteNumber webUri }
-          userErrors { message path }
-        }
-      }
-    `, {
-      input: {
-        clientId,
-        lineItems: buildJobberLineItems()
-      }
-    });
-
-    const quoteErrors = quoteRes.data?.quoteCreate?.userErrors;
-    if (quoteErrors?.length) throw new Error(quoteErrors[0].message);
-    const quote = quoteRes.data?.quoteCreate?.quote;
-    if (!quote) throw new Error('No quote returned from Jobber.');
-
-    btn.textContent = '✓ Quote Created!';
-    btn.style.background = 'var(--green-dark)';
-    statusEl.innerHTML = `<a href="${quote.webUri}" target="_blank" style="color:var(--green);font-weight:600">Open Quote #${quote.quoteNumber} in Jobber →</a>`;
-    sendToSheets(buildSheetsPayload({ source: 'jobber', jobberQuote: quote.quoteNumber }));
-
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = '📋 Create Quote in Jobber';
-    statusEl.textContent = '⚠ ' + (e.message || 'Unknown error — check the Jobber token.');
-    statusEl.style.color = '#c0392b';
-  }
-}
-
 function buildJobberLineItems() {
   const sqft        = +document.getElementById('sqft').value;
   const disposal    = +document.getElementById('disposal').value;
@@ -1434,28 +1291,32 @@ async function submitApprove() {
   document.getElementById('modal-form-view').style.display = 'none';
   document.getElementById('modal-sent-view').style.display = '';
 }
-function openReject() {
-  document.getElementById('reject-modal').classList.add('open');
-}
-function closeReject() {
-  document.getElementById('reject-modal').classList.remove('open');
-}
-function discardQuote() {
-  closeReject();
-  // Reset all range sliders to default
-  document.querySelectorAll('input[type=range]').forEach(r => { r.value = r.defaultValue || 0; });
-  document.getElementById('sqft').value = 1500;
-  // Reset discount
-  activeDiscount = null;
-  Object.keys(discounts).forEach(k => document.getElementById('d-cell-'+k).classList.remove('active'));
-  // Reset eco toggle
-  ecoOn = false;
-  document.getElementById('eco-track').style.background = '#ddd';
-  document.getElementById('eco-thumb').style.transform = 'translateX(0)';
-  document.getElementById('eco-label').style.color = '#bbb';
-  // Reset map
-  resetMap();
-  calc();
+function copyQuote() {
+  const items = buildJobberLineItems();
+  const pad = (s, n) => s + ' '.repeat(Math.max(1, n - s.length));
+  const COL = 42;
+  let lines = [];
+  lines.push('SPRING CLEANUP QUOTE');
+  lines.push('='.repeat(COL + 10));
+  items.forEach(item => {
+    const label = item.name + (item.quantity > 1 ? ' x' + item.quantity : '');
+    const price = (item.unitPrice < 0 ? '−$' + Math.abs(item.unitPrice * item.quantity).toFixed(2) : '$' + (item.unitPrice * item.quantity).toFixed(2));
+    lines.push(pad(label, COL) + price);
+  });
+  lines.push('-'.repeat(COL + 10));
+  const total = document.getElementById('r-total').textContent;
+  lines.push(pad('Estimated Total (excl. GST)', COL) + total);
+  lines.push('');
+  lines.push('Final quote confirmed by Zebra team.');
+
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const el = document.getElementById('copy-status');
+    el.textContent = 'Copied to clipboard!';
+    setTimeout(() => { el.textContent = ''; }, 3000);
+  }).catch(() => {
+    prompt('Copy the quote text below:', text);
+  });
 }
 
 // ── GOOGLE SHEETS INTEGRATION ──
