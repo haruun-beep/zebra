@@ -693,7 +693,7 @@ const GMAPS_KEY = 'AIzaSyCbcUCeTwo9uh-3EL9_lpSgRVD_EejFAIA';
 const JOBBER_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjE5ODkzOTAsImlzcyI6Imh0dHBzOi8vYXBpLmdldGpvYmJlci5jb20iLCJjbGllbnRfaWQiOiIxYzJhMzg1MS04ZGY5LTQ2MjItOTEzYy00NjhjNTExZGI2MTciLCJzY29wZSI6InJlYWRfY2xpZW50cyByZWFkX3F1b3RlcyIsImFwcF9pZCI6IjFjMmEzODUxLThkZjktNDYyMi05MTNjLTQ2OGM1MTFkYjYxNyIsInVzZXJfaWQiOjE5ODkzOTAsImFjY291bnRfaWQiOjEwMzU1MTYsImV4cCI6MTc3NDIyOTkyMH0.LIWXUZTJc0mLf5yLvL13JXbZfOfFLP-OmwxeXf-r';
 
 // ── STATE ──
-let map = null, autocomplete = null, drawingManager = null, activePolygons = [], addressMarker = null;
+let map = null, autocomplete = null, drawingManager = null, activePolygons = [], addressMarker = null, addressInfoWindow = null;
 
 // Callback must exist on window BEFORE the script tag is injected
 window.onMapsReady = function() {
@@ -769,7 +769,8 @@ function showMap(latLng, address) {
     map.setCenter(latLng); map.setZoom(19);
   }
 
-  // Remove any previous address marker
+  // Remove any previous address marker and label
+  if (addressInfoWindow) { addressInfoWindow.close(); addressInfoWindow = null; }
   if (addressMarker) { addressMarker.setMap(null); addressMarker = null; }
 
   // Place a red dot pin at the searched address
@@ -787,6 +788,13 @@ function showMap(latLng, address) {
     },
     zIndex: 999,
   });
+
+  // Show address label next to the red dot
+  addressInfoWindow = new google.maps.InfoWindow({
+    content: '<span style="font-size:12px;font-weight:700;color:#1a1a1a;">' + streetPart + '</span>',
+    disableAutoPan: true,
+  });
+  addressInfoWindow.open(map, addressMarker);
 
   wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
   // Auto-detect lawn area whenever a new address is loaded
@@ -1091,6 +1099,7 @@ function resetMap() {
   document.querySelector('.btn-confirm-site').style.display = 'none';
   document.getElementById('auto-badge').style.display = 'none';
   document.getElementById('sqft-hint').textContent = 'Enter the property address above to auto-measure, or drag to set manually.';
+  if (addressInfoWindow) { addressInfoWindow.close(); addressInfoWindow = null; }
   if (addressMarker) { addressMarker.setMap(null); addressMarker = null; }
   drawingManager = null; map = null;
 }
